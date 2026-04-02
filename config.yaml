@@ -3,10 +3,10 @@ args_config:
   arm_default_r: 0
   arm_default_z: 24
   max_rate: 1.0
-  max_speed: 1.3
+  max_speed: 0.65
   mid_rate: 0.66
   min_rate: 0.3
-  slow_speed: 0.2
+  slow_speed: 0.3
 audio_config:
   audio_output: true
   default_volume: 1.0
@@ -15,9 +15,9 @@ audio_config:
 base_config:
   add_osd: false
   extra_sensor: false
-  main_type: 2
+  main_type: 1
   module_type: 0
-  robot_name: UGV Rover
+  robot_name: RaspRover
   sbc_version: 0.93
   use_lidar: false
 cmd_config:
