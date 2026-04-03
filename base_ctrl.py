@@ -2,16 +2,15 @@ import serial
 import json
 import queue
 import threading
-import yaml
 import os
 import time
 import glob
 import numpy as np
+from app_config import AppConfig
 
 curpath = os.path.realpath(__file__)
 thisPath = os.path.dirname(curpath)
-with open(thisPath + '/config.yaml', 'r') as yaml_file:
-    f = yaml.safe_load(yaml_file)
+app_config = AppConfig(os.path.join(thisPath, 'config.yaml'))
 
 class ReadLine:
 	def __init__(self, s):
@@ -48,7 +47,12 @@ class ReadLine:
 			return r
 		while True:
 			i = max(1, min(512, self.s.in_waiting))
-			data = self.s.read(i)
+			try:
+				data = self.s.read(i)
+			except serial.SerialException:
+				return b""
+			if not data:
+				return b""
 			i = data.find(b"\n")
 			if i >= 0:
 				r = self.buf + data[:i+1]
@@ -133,6 +137,7 @@ class BaseController:
 	def __init__(self, uart_dev_set, buad_set):
 		self.ser = serial.Serial(uart_dev_set, buad_set, timeout=1)
 		self.rl = ReadLine(self.ser)
+		self.json_decoder = json.JSONDecoder()
 		self.command_queue = queue.Queue()
 		self.command_thread = threading.Thread(target=self.process_commands, daemon=True)
 		self.command_thread.start()
@@ -142,34 +147,73 @@ class BaseController:
 
 		self.data_buffer = None
 		self.base_data = None
+		self.last_feedback_error_log = 0
 
-		self.use_lidar = f['base_config']['use_lidar']
-		self.extra_sensor = f['base_config']['extra_sensor']
+		self.use_lidar = app_config.base('use_lidar')
+		self.extra_sensor = app_config.base('extra_sensor')
 		
+
+	def _parse_feedback_line(self, raw_line):
+		if not raw_line:
+			return []
+		try:
+			line = raw_line.decode('utf-8', errors='ignore').strip()
+		except Exception:
+			return []
+		if not line:
+			return []
+
+		parsed_objects = []
+		search_idx = 0
+		while search_idx < len(line):
+			start = line.find('{', search_idx)
+			if start == -1:
+				break
+			try:
+				data, end_idx = self.json_decoder.raw_decode(line, start)
+			except json.JSONDecodeError:
+				search_idx = start + 1
+				continue
+			if isinstance(data, dict):
+				parsed_objects.append(data)
+			search_idx = end_idx
+		return parsed_objects
 
 	def feedback_data(self):
 		try:
+			latest_valid = None
 			while self.rl.s.in_waiting > 0:
-				self.data_buffer = json.loads(self.rl.readline().decode('utf-8'))
-				if 'T' in self.data_buffer:
-					self.base_data = self.data_buffer
+				parsed_objects = self._parse_feedback_line(self.rl.readline())
+				for parsed in parsed_objects:
+					if 'T' not in parsed:
+						continue
+					self.base_data = parsed
+					latest_valid = self.base_data
 					self.data_buffer = None
-					if self.base_data["T"] == 1003:
-						print(self.base_data)
-						return self.base_data
-			self.rl.clear_buffer()
-			self.data_buffer = json.loads(self.rl.readline().decode('utf-8'))
-			self.base_data = self.data_buffer
+					if latest_valid["T"] == 1003:
+						print(latest_valid)
+						return latest_valid
+
+			if latest_valid is not None:
+				return latest_valid
+
+			for parsed in self._parse_feedback_line(self.rl.readline()):
+				if 'T' in parsed:
+					self.base_data = parsed
+					return self.base_data
 			return self.base_data
 		except Exception as e:
-			self.rl.clear_buffer()
-			print(f"[base_ctrl.feedback_data] error: {e}")
+			now = time.time()
+			if now - self.last_feedback_error_log > 1:
+				print(f"[base_ctrl.feedback_data] error: {e}")
+				self.last_feedback_error_log = now
+			return self.base_data
 
 
 	def on_data_received(self):
-		self.ser.reset_input_buffer()
-		data_read = json.loads(self.rl.readline().decode('utf-8'))
-		return data_read
+		for parsed in self._parse_feedback_line(self.rl.readline()):
+			return parsed
+		return None
 
 
 	def send_command(self, data):
@@ -218,19 +262,19 @@ class BaseController:
 
 	def bus_servo_id_set(self, old_id, new_id):
 		# data = {"T":54,"old":old_id,"new":new_id}
-		data = {"T":f['cmd_config']['cmd_set_servo_id'],"raw":old_id,"new":new_id}
+		data = {"T":app_config.cmd('cmd_set_servo_id'),"raw":old_id,"new":new_id}
 		self.send_command(data)
 
 
 	def bus_servo_torque_lock(self, input_id, input_status):
 		# data = {"T":55,"id":input_id,"status":input_status}
-		data = {"T":f['cmd_config']['cmd_servo_torque'],"id":input_id,"cmd":input_status}
+		data = {"T":app_config.cmd('cmd_servo_torque'),"id":input_id,"cmd":input_status}
 		self.send_command(data)
 
 
 	def bus_servo_mid_set(self, input_id):
 		# data = {"T":58,"id":input_id}
-		data = {"T":f['cmd_config']['cmd_set_servo_mid'],"id":input_id}
+		data = {"T":app_config.cmd('cmd_set_servo_mid'),"id":input_id}
 		self.send_command(data)
 
 

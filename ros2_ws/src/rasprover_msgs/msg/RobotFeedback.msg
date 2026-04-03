@@ -1,0 +1,10 @@
+builtin_interfaces/Time stamp
+string source
+float32 battery_voltage
+string motion_state
+float32 gimbal_pan
+float32 gimbal_tilt
+uint16 base_light_pwm
+uint16 head_light_pwm
+string[] fault_flags
+bool raw_available

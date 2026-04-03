@@ -1,0 +1,10 @@
+builtin_interfaces/Time stamp
+string mode
+string reaction_mode
+bool motion_lock
+float32 fps
+bool target_present
+string tracking_state
+float32 pan_angle
+float32 tilt_angle
+string led_mode

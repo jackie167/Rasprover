@@ -6,9 +6,10 @@ import threading
 import datetime, time
 import numpy as np
 import math
-import yaml, os, json, subprocess
+import os, json, subprocess
 from collections import deque
 import textwrap
+from app_config import AppConfig
 
 # libraries for csi camera
 from picamera2 import Picamera2
@@ -18,18 +19,18 @@ from picamera2.outputs import FfmpegOutput
 # config file.
 curpath = os.path.realpath(__file__)
 thisPath = os.path.dirname(curpath)
-with open(thisPath + '/config.yaml', 'r') as yaml_file:
-    f = yaml.safe_load(yaml_file)
+app_config = AppConfig(os.path.join(thisPath, 'config.yaml'))
 
 
 class OpencvFuncs():
     """docstring for OpencvFuncs"""
     def __init__(self, project_path, base_ctrl):
+        self.config = app_config
         self.base_ctrl = base_ctrl
         self.cv_event = threading.Event()
         self.cv_event.clear()
-        self.cv_mode = f['code']['cv_none']
-        self.detection_reaction_mode = f['code']['re_none']
+        self.cv_mode = self.config.code('cv_none')
+        self.detection_reaction_mode = self.config.code('re_none')
         
         self.this_path = project_path
         self.photo_path = self.this_path + '/templates/pictures/'
@@ -41,7 +42,7 @@ class OpencvFuncs():
         self.writer = None
         self.overlay = None
         self.scale_rate = 1
-        self.video_quality = f['video']['default_quality']
+        self.video_quality = self.config.video('default_quality')
 
         # cv ctrl info
         self.cv_light_mode = 0
@@ -51,11 +52,11 @@ class OpencvFuncs():
         self.fps_start_time = time.time()
         self.fps_count = 0
         self.cv_movtion_lock = True
-        self.aimed_error = f['cv']['aimed_error']
-        self.track_spd_rate = f['cv']['track_spd_rate']
-        self.track_acc_rate = f['cv']['track_acc_rate']
-        self.CMD_GIMBAL = f['cmd_config']['cmd_gimbal_ctrl']
-        self.sampling_rad = f['cv']['sampling_rad']
+        self.aimed_error = self.config.cv('aimed_error')
+        self.track_spd_rate = self.config.cv('track_spd_rate')
+        self.track_acc_rate = self.config.cv('track_acc_rate')
+        self.CMD_GIMBAL = self.config.cmd('cmd_gimbal_ctrl')
+        self.sampling_rad = self.config.cv('sampling_rad')
 
         # reaction
         self.last_frame_capture_time = datetime.datetime.now()
@@ -66,8 +67,8 @@ class OpencvFuncs():
 
         # face detection & tracking
         self.faceCascade = cv2.CascadeClassifier(thisPath + '/models/haarcascade_frontalface_default.xml')
-        self.min_radius = f['cv']['min_radius']
-        self.track_faces_iterate = f['cv']['track_faces_iterate']
+        self.min_radius = self.config.cv('min_radius')
+        self.track_faces_iterate = self.config.cv('track_faces_iterate')
 
         # color detection
         self.points = deque(maxlen=32)
@@ -76,13 +77,14 @@ class OpencvFuncs():
                         'green':[np.array([ 50, 130, 130]), np.array([ 78, 255, 255])],
                         'blue': [np.array([ 90,160, 150]), np.array([105, 255, 255])]
                         }
-        if f['cv']['default_color'] in self.color_list:
-            self.color_lower = self.color_list[f['cv']['default_color']][0]
-            self.color_upper = self.color_list[f['cv']['default_color']][1]
+        default_color = self.config.cv('default_color')
+        if default_color in self.color_list:
+            self.color_lower = self.color_list[default_color][0]
+            self.color_upper = self.color_list[default_color][1]
         else:
-            self.color_lower = np.array(f['cv']['color_lower'])
-            self.color_upper = np.array(f['cv']['color_upper'])
-        self.track_color_iterate = f['cv']['track_color_iterate']
+            self.color_lower = np.array(self.config.cv('color_lower'))
+            self.color_upper = np.array(self.config.cv('color_upper'))
+        self.track_color_iterate = self.config.cv('track_color_iterate')
 
         # cv_dnn_objects
         self.net = cv2.dnn.readNetFromCaffe(thisPath + '/models/deploy.prototxt', thisPath + '/models/mobilenet_iter_73000.caffemodel')
@@ -141,7 +143,7 @@ class OpencvFuncs():
         self.mission_flag = False
 
         # osd settings
-        self.add_osd = f['base_config']['add_osd']
+        self.add_osd = self.config.base('add_osd')
 
         # camera type detection
         self.usb_camera_connected = self.usb_camera_detection()
@@ -149,15 +151,15 @@ class OpencvFuncs():
         # usb camera init
         if self.usb_camera_connected:
             self.camera = cv2.VideoCapture(0)
-            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, f['video']['default_res_w'])
-            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, f['video']['default_res_h'])
+            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.video('default_res_w'))
+            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.video('default_res_h'))
 
         # csi camera init
         if not self.usb_camera_connected:
             print("init csi camera.")
             self.encoder = H264Encoder(1000000)
             self.picam2 = Picamera2()
-            self.picam2.configure(self.picam2.create_video_configuration(main={"format": 'XRGB8888', "size": (f['video']['default_res_w'], f['video']['default_res_h'])}))
+            self.picam2.configure(self.picam2.create_video_configuration(main={"format": 'XRGB8888', "size": (self.config.video('default_res_w'), self.config.video('default_res_h'))}))
             self.picam2.start()
 
 
@@ -183,7 +185,7 @@ class OpencvFuncs():
             return input_frame
 
         # opencv funcs
-        if self.cv_mode != f['code']['cv_none']:
+        if self.cv_mode != self.config.code('cv_none'):
             if not self.cv_event.is_set():
                 self.cv_event.set()
                 self.opencv_threading(input_frame)
@@ -339,12 +341,12 @@ class OpencvFuncs():
 
     def set_cv_mode(self, input_mode):
         self.cv_mode = input_mode
-        if self.cv_mode == f['code']['cv_none']:
+        if self.cv_mode == self.config.code('cv_none'):
             self.set_video_record_flag = False
 
     def set_detection_reaction(self, input_reaction):
         self.detection_reaction_mode = input_reaction
-        if self.detection_reaction_mode == f['code']['re_none']:
+        if self.detection_reaction_mode == self.config.code('re_none'):
             self.set_video_record_flag = False
 
 
@@ -382,16 +384,16 @@ class OpencvFuncs():
             self.last_movtion_captured = timestamp
 
             if(timestamp - self.last_frame_capture_time).seconds >= 1:
-                if self.detection_reaction_mode == f['code']['re_none']:
+                if self.detection_reaction_mode == self.config.code('re_none'):
                     pass
-                elif self.detection_reaction_mode == f['code']['re_capt']: 
+                elif self.detection_reaction_mode == self.config.code('re_capt'): 
                     self.picture_capture()
-                elif self.detection_reaction_mode == f['code']['re_reco']:
+                elif self.detection_reaction_mode == self.config.code('re_reco'):
                     self.video_record(True)
                 self.last_frame_capture_time = datetime.datetime.now()
             
         if (timestamp - self.last_movtion_captured).seconds >= 1.5:
-            if self.detection_reaction_mode == f['code']['re_reco']:
+            if self.detection_reaction_mode == self.config.code('re_reco'):
                 if(timestamp - self.last_frame_capture_time).seconds >= 5:
                     self.video_record(False)
 
@@ -452,11 +454,11 @@ class OpencvFuncs():
                 self.gimbal_track(center_x, center_y, max_face_center[0], max_face_center[1], self.track_faces_iterate)
 
             if(datetime.datetime.now() - self.last_frame_capture_time).seconds >= 3:
-                if self.detection_reaction_mode == f['code']['re_none']:
+                if self.detection_reaction_mode == self.config.code('re_none'):
                     pass
-                elif self.detection_reaction_mode == f['code']['re_capt']:
+                elif self.detection_reaction_mode == self.config.code('re_capt'):
                     self.picture_capture()
-                elif self.detection_reaction_mode == f['code']['re_reco']:
+                elif self.detection_reaction_mode == self.config.code('re_reco'):
                     self.video_record(True)
                 self.last_frame_capture_time = datetime.datetime.now()
         else:
@@ -465,7 +467,7 @@ class OpencvFuncs():
                     self.base_ctrl.head_light_status = 0
                     self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, self.base_ctrl.head_light_status)
 
-            if self.detection_reaction_mode == f['code']['re_reco']:
+            if self.detection_reaction_mode == self.config.code('re_reco'):
                 if(datetime.datetime.now() - self.last_frame_capture_time).seconds >= 5:
                     self.video_record(False)
 
@@ -867,12 +869,12 @@ class OpencvFuncs():
         return obj
 
     def update_base_data(self, input_data):
-        if not input_data:
+        if not input_data or not isinstance(input_data, dict):
             return
         try:
             if self.show_base_info_flag:
                 self.recv_deque.appendleft(json.dumps(self.format_json_numbers(input_data)))
-            if input_data['T'] == 1003:
+            if input_data.get('T') == 1003:
                 self.info_deque.appendleft({'text':json.dumps(input_data['mac']),'color':(16,64,255),'size':0.5})
                 wrapped_lines = textwrap.wrap(json.dumps(input_data['megs']), self.recv_line_max)
                 for line in wrapped_lines:
@@ -887,14 +889,14 @@ class OpencvFuncs():
 
     def cv_process(self, frame):
         cv_mode_list = {
-            f['code']['cv_moti']: self.cv_detect_movition,
-            f['code']['cv_face']: self.cv_detect_faces,
-            f['code']['cv_objs']: self.cv_detect_objects,
-            f['code']['cv_clor']: self.cv_detect_color,
-            f['code']['mp_hand']: self.mp_detect_hand,
-            f['code']['cv_auto']: self.cv_auto_drive,
-            f['code']['mp_face']: self.mediaPipe_faces,
-            f['code']['mp_pose']: self.mediaPipe_pose
+            self.config.code('cv_moti'): self.cv_detect_movition,
+            self.config.code('cv_face'): self.cv_detect_faces,
+            self.config.code('cv_objs'): self.cv_detect_objects,
+            self.config.code('cv_clor'): self.cv_detect_color,
+            self.config.code('mp_hand'): self.mp_detect_hand,
+            self.config.code('cv_auto'): self.cv_auto_drive,
+            self.config.code('mp_face'): self.mediaPipe_faces,
+            self.config.code('mp_pose'): self.mediaPipe_pose
         }
         try:
             cv_mode_list[self.cv_mode](frame)
