@@ -1,0 +1,36 @@
+#!/bin/bash
+
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PID_DIR="$PROJECT_DIR/.ros_motion_pids"
+
+stop_pid_file() {
+  local pid_file="$1"
+  [ -f "$pid_file" ] || return 0
+  local pid
+  pid="$(cat "$pid_file" 2>/dev/null || true)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    sleep 1
+    kill -9 "$pid" 2>/dev/null || true
+  fi
+  rm -f "$pid_file"
+}
+
+stop_pid_file "$PID_DIR/web.pid"
+stop_pid_file "$PID_DIR/joystick.pid"
+stop_pid_file "$PID_DIR/joy.pid"
+stop_pid_file "$PID_DIR/mux.pid"
+stop_pid_file "$PID_DIR/base.pid"
+
+pkill -f "/rasprover_base/lib/rasprover_base/robot_base_node" || true
+pkill -f "/rasprover_mux/lib/rasprover_mux/command_mux_node" || true
+pkill -f "/rasprover_mux/lib/rasprover_mux/local_joy_node" || true
+pkill -f "/rasprover_mux/lib/rasprover_mux/joystick_teleop_node" || true
+pkill -f "/rasprover_web/lib/rasprover_web/web_bridge_node" || true
+pkill -f "ros2 run rasprover_base robot_base_node" || true
+pkill -f "ros2 run rasprover_mux command_mux_node" || true
+pkill -f "ros2 run rasprover_mux local_joy_node" || true
+pkill -f "ros2 run rasprover_mux joystick_teleop_node" || true
+pkill -f "ros2 run rasprover_web web_bridge_node" || true
+
+echo "ros motion stack stopped"

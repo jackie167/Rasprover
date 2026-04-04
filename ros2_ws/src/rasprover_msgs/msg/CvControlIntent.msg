@@ -1,0 +1,14 @@
+builtin_interfaces/Time stamp
+string source
+string kind
+string mode
+bool target_present
+float32 linear
+float32 angular
+float32 pan
+float32 tilt
+float32 speed
+float32 accel
+uint16 base_pwm
+uint16 head_pwm
+uint32 timeout_ms

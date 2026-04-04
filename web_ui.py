@@ -1,3 +1,9 @@
+"""Legacy Flask/Socket.IO web runtime.
+
+This module is no longer the primary web entrypoint. It is kept as a fallback
+path while ROS web_bridge_node replaces the old in-process web stack.
+"""
+
 import asyncio
 import json
 import os

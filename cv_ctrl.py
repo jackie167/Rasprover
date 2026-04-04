@@ -418,8 +418,65 @@ class OpencvFuncs():
             gimbal_acc = 1
         if gimbal_spd < 1:
             gimbal_spd = 1
-        self.base_ctrl.base_json_ctrl({"T":self.CMD_GIMBAL,"X":self.pan_angle,"Y":self.tilt_angle,"SPD":gimbal_spd,"ACC":gimbal_acc})
+        self.send_cv_gimbal_intent(self.pan_angle, self.tilt_angle, gimbal_spd, gimbal_acc)
         return distance
+
+    def send_cv_gimbal_intent(self, pan, tilt, speed, accel):
+        self.base_ctrl.emit_cv_gimbal_intent(
+            pan=pan,
+            tilt=tilt,
+            speed=speed,
+            accel=accel,
+        )
+
+    def set_cv_lights(self, base_pwm, head_pwm):
+        self.base_ctrl.base_light_status = int(base_pwm)
+        self.base_ctrl.head_light_status = int(head_pwm)
+        self.base_ctrl.emit_cv_light_intent(
+            base_pwm=self.base_ctrl.base_light_status,
+            head_pwm=self.base_ctrl.head_light_status,
+        )
+
+    def send_cv_motion_intent(self, linear, angular):
+        self.base_ctrl.emit_cv_motion_intent(linear=linear, angular=angular, mode=self.cv_mode)
+
+    def publish_tracking_target(self, kind, frame_width, frame_height, target_x, target_y, area=0.0, radius=0.0):
+        center_x = frame_width / 2.0
+        center_y = frame_height / 2.0
+        self.base_ctrl.emit_tracking_target(
+            kind=kind,
+            mode=self.cv_mode,
+            frame_width=frame_width,
+            frame_height=frame_height,
+            center_x=center_x,
+            center_y=center_y,
+            target_x=target_x,
+            target_y=target_y,
+            offset_x=(target_x - center_x),
+            offset_y=(target_y - center_y),
+            area=area,
+            radius=radius,
+            target_present=True,
+        )
+
+    def clear_tracking_target(self, kind, frame_width=0, frame_height=0):
+        center_x = frame_width / 2.0 if frame_width else 0.0
+        center_y = frame_height / 2.0 if frame_height else 0.0
+        self.base_ctrl.emit_tracking_target(
+            kind=kind,
+            mode=self.cv_mode,
+            frame_width=frame_width,
+            frame_height=frame_height,
+            center_x=center_x,
+            center_y=center_y,
+            target_x=0.0,
+            target_y=0.0,
+            offset_x=0.0,
+            offset_y=0.0,
+            area=0.0,
+            radius=0.0,
+            target_present=False,
+        )
 
     def cv_detect_faces(self, img):
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -440,8 +497,7 @@ class OpencvFuncs():
         if len(faces):
             if self.cv_light_mode == 1:
                 if self.base_ctrl.head_light_status == 0:
-                    self.base_ctrl.head_light_status = 255
-                    self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, self.base_ctrl.head_light_status)
+                    self.set_cv_lights(self.base_ctrl.base_light_status, 255)
 
             for (x,y,w,h) in faces:
                 cv2.rectangle(overlay_buffer,(x,y),(x+w,y+h),(64,128,255),1)
@@ -449,6 +505,8 @@ class OpencvFuncs():
                 if face_area > max_area:
                     max_area = face_area
                     max_face_center = (x + w // 2, y + h // 2)
+
+            self.publish_tracking_target('face', width, height, max_face_center[0], max_face_center[1], area=max_area)
 
             if not self.cv_movtion_lock:
                 self.gimbal_track(center_x, center_y, max_face_center[0], max_face_center[1], self.track_faces_iterate)
@@ -462,10 +520,10 @@ class OpencvFuncs():
                     self.video_record(True)
                 self.last_frame_capture_time = datetime.datetime.now()
         else:
+            self.clear_tracking_target('face', width, height)
             if self.cv_light_mode == 1:
                 if self.base_ctrl.head_light_status != 0:
-                    self.base_ctrl.head_light_status = 0
-                    self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, self.base_ctrl.head_light_status)
+                    self.set_cv_lights(self.base_ctrl.base_light_status, 0)
 
             if self.detection_reaction_mode == self.config.code('re_reco'):
                 if(datetime.datetime.now() - self.last_frame_capture_time).seconds >= 5:
@@ -491,6 +549,8 @@ class OpencvFuncs():
         blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 0.007843, (300, 300), 127.5)
         self.net.setInput(blob)
         detections = self.net.forward()
+        best_area = 0
+        best_center = None
 
         for i in range(0, detections.shape[2]):
             confidence = detections[0, 0, i, 2]
@@ -504,6 +564,15 @@ class OpencvFuncs():
                 cv2.rectangle(overlay_buffer, (startX, startY), (endX, endY), (0, 255, 0), 2)
                 y = startY - 15 if startY - 15 > 15 else startY + 15
                 cv2.putText(overlay_buffer, label, (startX, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                area = max(0, endX - startX) * max(0, endY - startY)
+                if area > best_area:
+                    best_area = area
+                    best_center = ((startX + endX) / 2.0, (startY + endY) / 2.0)
+
+        if best_center is not None:
+            self.publish_tracking_target('object', w, h, best_center[0], best_center[1], area=float(best_area))
+        else:
+            self.clear_tracking_target('object', w, h)
 
         self.overlay = overlay_buffer
 
@@ -557,14 +626,15 @@ class OpencvFuncs():
 
             # only proceed if the radius meets a minimum size
             if radius > self.min_radius:
+                self.publish_tracking_target('color', width, height, center[0], center[1], area=float(cv2.contourArea(c)), radius=float(radius))
                 if not self.cv_movtion_lock:
                     distance = self.gimbal_track(center_x, center_y, center[0], center[1], self.track_color_iterate)
                     if distance < self.aimed_error:
                         head_light_pwm = 10
-                        self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, head_light_pwm)
+                        self.set_cv_lights(self.base_ctrl.base_light_status, head_light_pwm)
                     else:
                         head_light_pwm = 0
-                        self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, head_light_pwm)
+                        self.set_cv_lights(self.base_ctrl.base_light_status, head_light_pwm)
                     cv2.putText(overlay_buffer, 'DIF: {}'.format(distance), (center_x+50, center_y+20), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
@@ -578,8 +648,9 @@ class OpencvFuncs():
 
                 self.points.appendleft(center)
             else:
+                self.clear_tracking_target('color', width, height)
                 head_light_pwm = 0
-                self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, head_light_pwm)
+                self.set_cv_lights(self.base_ctrl.base_light_status, head_light_pwm)
                 self.points.appendleft(None)
 
             for i in range(1, len(self.points)):
@@ -589,6 +660,8 @@ class OpencvFuncs():
 
         self.overlay = np.zeros_like(img)
         self.overlay = overlay_buffer
+        if len(cnts) == 0:
+            self.clear_tracking_target('color', width, height)
 
     def calculate_distance(self, lm1, lm2):
         return ((lm1.x - lm2.x) ** 2 + (lm1.y - lm2.y) ** 2) ** 0.5
@@ -635,6 +708,13 @@ class OpencvFuncs():
                 self.mpDraw.draw_landmarks(overlay_buffer, handLms, self.mpHands.HAND_CONNECTIONS)
 
                 target_pos = handLms.landmark[self.mpHands.HandLandmark.INDEX_FINGER_TIP]
+                self.publish_tracking_target(
+                    'hand',
+                    width,
+                    height,
+                    width * target_pos.x,
+                    height * target_pos.y,
+                )
                 # print(f"x:{target_pos.x} y:{target_pos.y}")
                 if not self.cv_movtion_lock:
                     distance = self.gimbal_track(center_x, center_y, width*target_pos.x, height*target_pos.y, self.track_faces_iterate)
@@ -670,7 +750,7 @@ class OpencvFuncs():
                     # print(index_finger_gs)
 
                     get_pwm = int(self.map_value(tips_distance, 0.01, self.max_distance, 0, 128))
-                    self.base_ctrl.lights_ctrl(get_pwm, get_pwm)
+                    self.set_cv_lights(get_pwm, get_pwm)
 
                     # try:
                     #     print(f"dis:{tips_distance} max:{self.max_distance} pwm:{get_pwm}")
@@ -682,17 +762,19 @@ class OpencvFuncs():
                     cv2.putText(overlay_buffer, ' GS: Take Pic', (center_x+50, center_y+100), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 128, 128), 1)
                     if time.time() - self.gs_pic_last_time > self.gs_pic_interval:
-                        self.base_ctrl.lights_ctrl(255, 255)
+                        self.set_cv_lights(255, 255)
                         time.sleep(0.01)
                         self.picture_capture()
-                        self.base_ctrl.lights_ctrl(0, 0)
+                        self.set_cv_lights(0, 0)
                         self.gs_pic_last_time = time.time()
 
                 # Not Found
                 else:
                     cv2.putText(overlay_buffer, ' GS: Not Defined', (center_x+50, center_y+100), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 128, 128), 1)
-                    self.base_ctrl.lights_ctrl(0, 0)
+                    self.set_cv_lights(0, 0)
+        else:
+            self.clear_tracking_target('hand', width, height)
 
         cv2.putText(overlay_buffer, 'ITERATE: {}'.format(self.track_faces_iterate), (center_x+50, center_y+140), 
             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
@@ -763,15 +845,19 @@ class OpencvFuncs():
             input_speed = self.line_track_speed - impact_by_slope
             # print(f'im_by_slope:{impact_by_slope}   input_speed:{input_speed}')
             input_turning = -(line_slope * self.slope_impact + (sampling_2_center - center_x) * self.base_impact) #+ (speed_impact * input_speed)
+            self.publish_tracking_target('line_follow', width, height, sampling_2_center, sampling_h2, area=float(sampling_width_2), radius=0.0)
         elif not sam_1 and sam_2:
             input_speed = 0
             input_turning = (sampling_2_center - center_x) * self.base_impact
+            self.publish_tracking_target('line_follow', width, height, sampling_2_center, sampling_h2, area=float(sampling_width_2), radius=0.0)
         elif sam_1 and not sam_2:
             input_speed = (self.line_track_speed / 3)
             input_turning = 0
+            self.publish_tracking_target('line_follow', width, height, sampling_1_center, sampling_h1, area=float(sampling_width_1), radius=0.0)
         else:
             input_speed = - (self.line_track_speed / 3)
             input_turning = 0
+            self.clear_tracking_target('line_follow', width, height)
 
         # input_turning = - line_slope * slope_impact
         # try:
@@ -779,7 +865,7 @@ class OpencvFuncs():
         # except:
         #     pass
         if not self.cv_movtion_lock:
-            self.base_ctrl.base_json_ctrl({"T":13,"X":input_speed,"Z":input_turning})
+            self.send_cv_motion_intent(input_speed, input_turning)
 
         overlay_buffer = np.zeros_like(img)
         overlay_buffer = cv2.cvtColor(line_mask, cv2.COLOR_GRAY2BGR)
@@ -821,9 +907,25 @@ class OpencvFuncs():
 
         overlay_buffer = np.zeros_like(image)
         cv2.putText(overlay_buffer, 'MediaPipe Faces', (100, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        height, width = img.shape[:2]
+        best_area = 0.0
+        best_center = None
         if results.detections:
             for detection in results.detections:
                 self.mpDraw.draw_detection(overlay_buffer, detection)
+                bbox = detection.location_data.relative_bounding_box
+                box_width = max(0.0, bbox.width * width)
+                box_height = max(0.0, bbox.height * height)
+                area = box_width * box_height
+                center_x = (bbox.xmin + (bbox.width / 2.0)) * width
+                center_y = (bbox.ymin + (bbox.height / 2.0)) * height
+                if area > best_area:
+                    best_area = area
+                    best_center = (center_x, center_y)
+        if best_center is not None:
+            self.publish_tracking_target('mp_face', width, height, best_center[0], best_center[1], area=float(best_area))
+        else:
+            self.clear_tracking_target('mp_face', width, height)
         self.overlay = overlay_buffer
 
     def mediaPipe_pose(self, img):
@@ -832,8 +934,19 @@ class OpencvFuncs():
 
         overlay_buffer = np.zeros_like(image)
         cv2.putText(overlay_buffer, 'MediaPipe Pose', (100, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        height, width = img.shape[:2]
         if results.pose_landmarks:
             self.mpDraw.draw_landmarks(overlay_buffer, results.pose_landmarks, self.mp_pose.POSE_CONNECTIONS)
+            nose = results.pose_landmarks.landmark[self.mp_pose.PoseLandmark.NOSE]
+            self.publish_tracking_target(
+                'pose',
+                width,
+                height,
+                width * nose.x,
+                height * nose.y,
+            )
+        else:
+            self.clear_tracking_target('pose', width, height)
         self.overlay = overlay_buffer
 
 
@@ -911,20 +1024,20 @@ class OpencvFuncs():
     def head_light_ctrl(self, input_mode):
         self.cv_light_mode = input_mode
         if input_mode == 0:
-            self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, 0)
+            self.set_cv_lights(self.base_ctrl.base_light_status, 0)
             self.cv_light_mode = input_mode
         elif input_mode == 2:
-            self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, 255)
+            self.set_cv_lights(self.base_ctrl.base_light_status, 255)
             self.cv_light_mode = input_mode
         elif input_mode == 3:
             if self.cv_light_mode == 1:
                 return
             elif self.base_ctrl.head_light_status == 0:
                 self.cv_light_mode = 2
-                self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, 255)
+                self.set_cv_lights(self.base_ctrl.base_light_status, 255)
             elif self.base_ctrl.head_light_status != 0:
                 self.cv_light_mode = 0
-                self.base_ctrl.lights_ctrl(self.base_ctrl.base_light_status, 0)
+                self.set_cv_lights(self.base_ctrl.base_light_status, 0)
 
     def set_movtion_lock(self, input_cmd):
         if not input_cmd:
@@ -977,14 +1090,14 @@ class OpencvFuncs():
             if not self.mission_flag:
                 self.mission_flag = False
                 break
-            self.base_ctrl.base_json_ctrl({"T":1,"L":input_speed,"R":input_speed})
+            self.send_cv_motion_intent(input_speed, 0)
             time.sleep(input_time)
-            self.base_ctrl.base_json_ctrl({"T":1,"L":0,"R":0})
+            self.send_cv_motion_intent(0, 0)
             time.sleep(input_interval/2)
-            self.base_ctrl.lights_ctrl(255, 255)
+            self.set_cv_lights(255, 255)
             time.sleep(0.01)
             self.picture_capture()
-            self.base_ctrl.lights_ctrl(0, 0)
+            self.set_cv_lights(0, 0)
             time.sleep(input_interval/2)
             if not self.mission_flag:
                 self.mission_flag = False

@@ -1,0 +1,15 @@
+builtin_interfaces/Time stamp
+string source
+string mode
+string kind
+bool target_present
+float32 center_x
+float32 center_y
+float32 target_x
+float32 target_y
+float32 offset_x
+float32 offset_y
+float32 area
+float32 radius
+uint16 frame_width
+uint16 frame_height

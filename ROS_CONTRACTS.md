@@ -38,6 +38,40 @@ Topics:
 - `/cv/control_intent`
 - `/system/cmd`
 
+## Contract 0A: CV Control Intent
+
+Topic:
+- `/cv/control_intent`
+
+Purpose:
+- Let CV publish typed intent without publishing final robot actuation topics directly.
+
+Schema:
+
+```yaml
+stamp: builtin_interfaces/Time
+source: string
+kind: string
+mode: string
+target_present: bool
+pan: float32
+tilt: float32
+speed: float32
+accel: float32
+base_pwm: uint16
+head_pwm: uint16
+timeout_ms: uint32
+```
+
+Current intent kinds:
+- `gimbal`
+- `lights`
+
+Notes:
+- `cv_node` publishes this.
+- `command_mux_node` arbitrates it against UI/system input.
+- This is an intent contract, not a final actuation contract.
+
 ### Compatibility topic
 
 Optional, temporary, debug/fallback only:

@@ -5,6 +5,9 @@ bool motion_lock
 float32 fps
 bool target_present
 string tracking_state
+string target_kind
+float32 target_offset_x
+float32 target_offset_y
 float32 pan_angle
 float32 tilt_angle
 string led_mode

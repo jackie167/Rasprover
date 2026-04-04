@@ -1,3 +1,9 @@
+"""Legacy in-process command mux.
+
+This class is retained for compatibility with the fallback app.py runtime.
+The primary command policy runtime now lives in ROS command_mux_node.
+"""
+
 from command_router import CommandRouter
 from command_service import CommandService
 
@@ -91,6 +97,19 @@ class CmdMux:
             base_light_status=self.base.base_light_status,
             head_light_status=self.base.head_light_status,
         )
+
+    # CV interface so cv_ctrl can use the same boundary in both legacy and ROS paths.
+    def emit_cv_gimbal_intent(self, pan, tilt, speed, accel, mode=None, timeout_ms=None):
+        self.gimbal_ctrl(pan, tilt, speed, accel)
+
+    def emit_cv_light_intent(self, base_pwm, head_pwm, mode=None, timeout_ms=None):
+        self.lights_ctrl(base_pwm, head_pwm)
+
+    def emit_cv_motion_intent(self, linear, angular, mode=None, timeout_ms=None):
+        self.send_json({"T": 13, "X": linear, "Z": angular})
+
+    def emit_tracking_target(self, **kwargs):
+        return
 
     def base_lights_ctrl(self):
         if self.base.base_light_status != 0:

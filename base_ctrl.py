@@ -179,6 +179,9 @@ class BaseController:
 			search_idx = end_idx
 		return parsed_objects
 
+	def _log_feedback_packet(self, packet):
+		return
+
 	def feedback_data(self):
 		try:
 			latest_valid = None
@@ -187,6 +190,7 @@ class BaseController:
 				for parsed in parsed_objects:
 					if 'T' not in parsed:
 						continue
+					self._log_feedback_packet(parsed)
 					self.base_data = parsed
 					latest_valid = self.base_data
 					self.data_buffer = None
@@ -199,6 +203,7 @@ class BaseController:
 
 			for parsed in self._parse_feedback_line(self.rl.readline()):
 				if 'T' in parsed:
+					self._log_feedback_packet(parsed)
 					self.base_data = parsed
 					return self.base_data
 			return self.base_data

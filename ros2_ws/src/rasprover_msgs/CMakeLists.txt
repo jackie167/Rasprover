@@ -14,7 +14,10 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/MotionCommand.msg"
   "msg/GimbalCommand.msg"
   "msg/LightCommand.msg"
+  "msg/ServoSetupCommand.msg"
   "msg/CvStatus.msg"
+  "msg/CvControlIntent.msg"
+  "msg/CvTrackingTarget.msg"
   "msg/RobotFeedback.msg"
   "msg/RawRobotFeedback.msg"
   DEPENDENCIES builtin_interfaces std_msgs

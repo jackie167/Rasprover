@@ -1,3 +1,10 @@
+"""Legacy runtime entrypoint.
+
+This file is kept only as a fallback/dev path while the ROS stack becomes the
+default runtime. The primary boot path is:
+web_bridge_node -> command_mux_node -> robot_base_node -> cv_node
+"""
+
 import os
 import threading
 import time
