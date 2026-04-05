@@ -33,3 +33,10 @@ What remains intentionally non-ROS:
 - `base_ctrl.py`
 
 These stay as the hardware/backend layer used by `robot_base_node`.
+
+What remains transitional but still active in ROS:
+
+- `cv_ctrl.py`
+- `state_store.py`
+
+These are still consumed indirectly by `cv_node` and `rasprover_base`, so they are not ready to move into tutorial/archive storage yet.
