@@ -13,7 +13,7 @@ from urllib.request import Request
 from urllib.request import urlopen
 
 try:
-    import audio_ctrl
+    from legacy_runtime import audio_ctrl
 except Exception:  # pragma: no cover
     audio_ctrl = None
 import rclpy

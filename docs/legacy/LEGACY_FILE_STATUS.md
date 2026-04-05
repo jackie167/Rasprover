@@ -6,13 +6,15 @@ Can the remaining root-level legacy Python files be moved into `tutorial/` or ar
 
 ## Short Answer
 
-Not yet.
+Mostly no, but the situation is cleaner now.
 
-Some root-level legacy files are still used by the active ROS runtime, not just by the fallback app.
+The active ROS runtime no longer depends on most root-level legacy files. What
+remains at the root is mostly a compatibility shim layer plus a few config/tool
+entrypoints.
 
 ## Still Active In ROS Runtime
 
-These components are still live dependencies of the ROS stack, but the root-level files are no longer the implementation owners in every case.
+These components are still live dependencies of the ROS stack, but the root-level files are wrapper entrypoints only.
 
 - `base_ctrl.py`
   Root file is now a compatibility wrapper.
@@ -66,12 +68,51 @@ These are legacy/fallback operator entrypoints rather than core runtime logic:
 
 They should stay until the team decides the legacy fallback app is no longer needed.
 
+## Root Shim Retirement Matrix
+
+- `base_ctrl.py`
+  Keep for now.
+  Still used by local diagnostic tools and any operator habits that import `base_ctrl` from repo root.
+
+- `base_driver.py`
+  Keep for now.
+  Still used by local diagnostic tools and capture scripts that are designed to run without ROS package imports in the command line.
+
+- `state_store.py`
+  Can be retired later after confirming no non-ROS scripts import it from root.
+
+- `cv_ctrl.py`
+  Keep for now.
+  Still useful as a compatibility import while the CV path remains transitional.
+
+- `app.py`
+  Can be retired once the team officially drops the fallback app runtime entrypoint.
+
+- `web_ui.py`
+  Can be retired with `app.py`.
+
+- `cmd_mux.py`
+  Can be retired with the fallback app runtime.
+
+- `command_service.py`
+  Can be retired with the fallback app runtime.
+
+- `command_router.py`
+  Can be retired with the fallback app runtime.
+
+- `audio_ctrl.py`
+  Now only a fallback/compatibility shim.
+  ROS-side `rasprover_ui` no longer imports it from root.
+
+- `os_info.py`
+  Now only a fallback/compatibility shim for the legacy runtime path.
+
 ## What Can Be Moved Later
 
-The following move is reasonable in a later cleanup phase, but not yet:
+The following move is already done:
 
-- move legacy fallback app files into a dedicated folder such as `legacy_runtime/`
-- keep compatibility wrappers at the root if operator habits still depend on the old script names
+- legacy fallback app files now live under `legacy_runtime/`
+- root files are compatibility wrappers where needed
 
 The following move is not safe yet:
 
@@ -82,6 +123,6 @@ The following move is not safe yet:
 Do not move the active legacy-backed runtime files into `tutorial/`.
 
 Instead:
-- keep them where they are
-- document that they are transitional runtime dependencies
+- keep only the minimum root shims still needed for operator compatibility
+- document exactly which ones can be retired next
 - continue shrinking their surface area by moving ownership into ROS packages first
