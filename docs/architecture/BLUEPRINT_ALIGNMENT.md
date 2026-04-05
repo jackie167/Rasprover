@@ -14,15 +14,27 @@ This note maps the current repository layout to the target blueprint without cha
 
 - `ros2_ws/src/rasprover_mux`
   Target: `rasprover_control`
-  Status: functional match, naming still legacy. Owns mux and joystick teleop behavior today.
+  Status: transitional wrapper added. `rasprover_control` now exists and re-exports the current mux and joystick nodes.
 
 - `ros2_ws/src/rasprover_web`
   Target: `rasprover_ui`
-  Status: functional match, naming still legacy. Owns web/operator bridge behavior.
+  Status: transitional wrapper added. `rasprover_ui` now exists and re-exports the current web bridge.
 
 - `ros2_ws/src/rasprover_localization`
   Target: split between `rasprover_base`, `rasprover_slam`, and `rasprover_utils`
   Status: temporary integration package. Currently hosts the sensor bridge and SLAM-facing configs.
+
+- `ros2_ws/src/rasprover_slam`
+  Target: `rasprover_slam`
+  Status: aligned as a new package for SLAM launch/config ownership, while current bridge code still remains in `rasprover_localization`.
+
+- `ros2_ws/src/rasprover_sensors`
+  Target: `rasprover_sensors`
+  Status: placeholder package added to reserve the future LiDAR/camera/static-TF boundary.
+
+- `ros2_ws/src/rasprover_utils`
+  Target: `rasprover_utils`
+  Status: placeholder package added to reserve a ROS-side home for diagnostics and utility helpers.
 
 - `ros2_ws/src/rasprover_bringup`
   Target: `rasprover_bringup`

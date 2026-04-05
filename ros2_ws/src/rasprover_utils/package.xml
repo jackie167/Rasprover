@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rasprover_utils</name>
+  <version>0.0.1</version>
+  <description>Blueprint-aligned ROS 2 utility package placeholder for Rasprover.</description>
+
+  <maintainer email="thi.ledinh@gmail.com">jackie167</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

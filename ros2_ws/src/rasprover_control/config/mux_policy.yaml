@@ -1,0 +1,4 @@
+command_mux_node:
+  ros__parameters:
+    active_timeout_sec: 0.5
+    estop_topic: /system/cmd/stop

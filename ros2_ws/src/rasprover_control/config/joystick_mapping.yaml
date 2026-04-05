@@ -1,0 +1,7 @@
+joystick_bridge_node:
+  ros__parameters:
+    joy_topic: /joy
+    linear_axis: 1
+    angular_axis: 0
+    pan_axis: 2
+    tilt_axis: 3
