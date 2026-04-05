@@ -29,7 +29,7 @@ def generate_launch_description():
             parameters=[{'serial_port': serial_port}],
         ),
         Node(
-            package='rasprover_localization',
+            package='rasprover_sensors',
             executable='slam_sensor_bridge_node',
             name='slam_sensor_bridge_node',
             output='screen',
