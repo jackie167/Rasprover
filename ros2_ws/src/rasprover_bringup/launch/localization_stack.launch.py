@@ -12,14 +12,14 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'ekf_config',
-            default_value='/home/ws/ugv_rpi/ros2_ws/src/rasprover_localization/config/ekf_wheel_imu.yaml',
+            default_value='/home/ws/ugv_rpi/ros2_ws/src/rasprover_slam/config/ekf_wheel_imu.yaml',
         ),
         DeclareLaunchArgument(
             'with_bridge',
             default_value='true',
         ),
         Node(
-            package='rasprover_localization',
+            package='rasprover_sensors',
             executable='slam_sensor_bridge_node',
             name='slam_sensor_bridge_node',
             output='screen',

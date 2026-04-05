@@ -2,15 +2,19 @@
 <package format="3">
   <name>rasprover_sensors</name>
   <version>0.0.1</version>
-  <description>Blueprint-aligned ROS 2 sensor package placeholder for Rasprover.</description>
+  <description>Blueprint-aligned ROS 2 sensor package for Rasprover sensor bridges and future LiDAR/camera bringup.</description>
 
   <maintainer email="thi.ledinh@gmail.com">jackie167</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
+  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>rasprover_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
 

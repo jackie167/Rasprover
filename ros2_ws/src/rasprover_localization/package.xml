@@ -2,21 +2,16 @@
 <package format="3">
   <name>rasprover_localization</name>
   <version>0.0.1</version>
-  <description>ROS 2 sensor bridge and localization helpers for Rasprover.</description>
+  <description>Legacy compatibility wrapper for Rasprover localization and sensor bridge entrypoints.</description>
 
   <maintainer email="thi.ledinh@gmail.com">jackie167</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>rclpy</exec_depend>
-  <exec_depend>rasprover_msgs</exec_depend>
+  <exec_depend>rasprover_sensors</exec_depend>
   <exec_depend>robot_localization</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

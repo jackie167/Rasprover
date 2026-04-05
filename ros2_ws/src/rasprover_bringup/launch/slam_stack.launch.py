@@ -12,11 +12,11 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'ekf_config',
-            default_value='/home/ws/ugv_rpi/ros2_ws/src/rasprover_localization/config/ekf_wheel_imu.yaml',
+            default_value='/home/ws/ugv_rpi/ros2_ws/src/rasprover_slam/config/ekf_wheel_imu.yaml',
         ),
         DeclareLaunchArgument(
             'slam_params',
-            default_value='/home/ws/ugv_rpi/ros2_ws/src/rasprover_localization/config/slam_toolbox_online_async.yaml',
+            default_value='/home/ws/ugv_rpi/ros2_ws/src/rasprover_slam/config/slam_toolbox_online_async.yaml',
         ),
         DeclareLaunchArgument(
             'scan_topic',

@@ -16,7 +16,7 @@ setup(
     zip_safe=True,
     maintainer='jackie167',
     maintainer_email='thi.ledinh@gmail.com',
-    description='ROS 2 localization helpers for Rasprover.',
+    description='Legacy compatibility wrapper for Rasprover localization entrypoints.',
     license='MIT',
     tests_require=['pytest'],
     entry_points={

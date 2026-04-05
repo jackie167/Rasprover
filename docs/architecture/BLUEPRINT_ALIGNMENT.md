@@ -22,15 +22,15 @@ This note maps the current repository layout to the target blueprint without cha
 
 - `ros2_ws/src/rasprover_localization`
   Target: split between `rasprover_base`, `rasprover_slam`, and `rasprover_utils`
-  Status: temporary integration package. Currently hosts the sensor bridge and SLAM-facing configs.
+  Status: compatibility layer. Legacy bridge entrypoint and legacy config paths remain here for backward compatibility.
 
 - `ros2_ws/src/rasprover_slam`
   Target: `rasprover_slam`
-  Status: aligned as a new package for SLAM launch/config ownership, while current bridge code still remains in `rasprover_localization`.
+  Status: aligned as the package for SLAM launch/config ownership.
 
 - `ros2_ws/src/rasprover_sensors`
   Target: `rasprover_sensors`
-  Status: placeholder package added to reserve the future LiDAR/camera/static-TF boundary.
+  Status: aligned. Owns the runtime sensor bridge today and is the future home for LiDAR/camera/static-TF integration.
 
 - `ros2_ws/src/rasprover_utils`
   Target: `rasprover_utils`
@@ -79,11 +79,17 @@ These new launch files prefer blueprint-aligned package names such as `rasprover
 - `rasprover_ui`
   Owns the runtime implementation for the web bridge.
 
+- `rasprover_sensors`
+  Owns the runtime implementation for the sensor bridge that converts raw ESP feedback into ROS-standard IMU and wheel odometry topics.
+
 - `rasprover_mux`
   Kept only for compatibility entrypoints and import forwarding.
 
 - `rasprover_web`
   Kept only for compatibility entrypoints and import forwarding.
+
+- `rasprover_localization`
+  Kept for compatibility entrypoints and legacy config paths while runtime ownership moves into `rasprover_sensors` and `rasprover_slam`.
 
 ## Deferred Structural Refactors
 
@@ -91,7 +97,6 @@ These are intentionally not done yet because they would change package names, im
 
 - rename `rasprover_mux` to `rasprover_control`
 - rename `rasprover_web` to `rasprover_ui`
-- split `rasprover_localization` into blueprint-native packages such as `rasprover_slam`, `rasprover_sensors`, or `rasprover_utils`
 - relocate legacy root Python modules like `base_ctrl.py` and `base_driver.py` into package-local adapter folders
 
 ## Runtime Rule Kept Intact

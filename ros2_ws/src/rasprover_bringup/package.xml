@@ -12,8 +12,8 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>rasprover_base</exec_depend>
-  <exec_depend>rasprover_localization</exec_depend>
   <exec_depend>rasprover_control</exec_depend>
+  <exec_depend>rasprover_sensors</exec_depend>
   <exec_depend>rasprover_slam</exec_depend>
   <exec_depend>rasprover_ui</exec_depend>
   <exec_depend>robot_localization</exec_depend>

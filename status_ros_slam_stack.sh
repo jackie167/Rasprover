@@ -20,7 +20,7 @@ done
 echo
 
 echo "== slam node processes =="
-pgrep -af "/rasprover_base/lib/rasprover_base/robot_base_node|/rasprover_localization/lib/rasprover_localization/slam_sensor_bridge_node|/robot_localization/lib/robot_localization/ekf_node|/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node" || echo "No slam stack nodes found"
+pgrep -af "/rasprover_base/lib/rasprover_base/robot_base_node|/rasprover_sensors/lib/rasprover_sensors/slam_sensor_bridge_node|/rasprover_localization/lib/rasprover_localization/slam_sensor_bridge_node|/robot_localization/lib/robot_localization/ekf_node|/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node" || echo "No slam stack nodes found"
 echo
 
 echo "== serial users =="

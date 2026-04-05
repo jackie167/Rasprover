@@ -16,7 +16,12 @@ setup(
     zip_safe=True,
     maintainer='jackie167',
     maintainer_email='thi.ledinh@gmail.com',
-    description='Blueprint-aligned sensor package placeholder for future LiDAR/camera bringup.',
+    description='Blueprint-aligned sensor package for sensor bridges and future LiDAR/camera bringup.',
     license='MIT',
     tests_require=['pytest'],
+    entry_points={
+        'console_scripts': [
+            'slam_sensor_bridge_node = rasprover_sensors.slam_sensor_bridge_node:main',
+        ],
+    },
 )

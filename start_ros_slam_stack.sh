@@ -36,7 +36,7 @@ start_node \
 sleep 2
 start_node \
   "bridge" \
-  "$ROS_WS/install/rasprover_localization/lib/rasprover_localization/slam_sensor_bridge_node" \
+  "$ROS_WS/install/rasprover_sensors/lib/rasprover_sensors/slam_sensor_bridge_node" \
   "--ros-args --log-level info"
 sleep 1
 start_node \

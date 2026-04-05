@@ -23,10 +23,12 @@ stop_pid_file "$PID_DIR/slam_base.pid"
 
 pkill -f "/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node" || true
 pkill -f "/robot_localization/lib/robot_localization/ekf_node" || true
+pkill -f "/rasprover_sensors/lib/rasprover_sensors/slam_sensor_bridge_node" || true
 pkill -f "/rasprover_localization/lib/rasprover_localization/slam_sensor_bridge_node" || true
 pkill -f "/rasprover_base/lib/rasprover_base/robot_base_node" || true
 pkill -f "ros2 run slam_toolbox async_slam_toolbox_node" || true
 pkill -f "ros2 run robot_localization ekf_node" || true
+pkill -f "ros2 run rasprover_sensors slam_sensor_bridge_node" || true
 pkill -f "ros2 run rasprover_localization slam_sensor_bridge_node" || true
 pkill -f "ros2 run rasprover_base robot_base_node" || true
 
