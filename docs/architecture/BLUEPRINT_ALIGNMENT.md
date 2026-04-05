@@ -6,7 +6,7 @@ This note maps the current repository layout to the target blueprint without cha
 
 - `ros2_ws/src/rasprover_base`
   Target: `rasprover_base`
-  Status: aligned. Owns the serial and protocol boundary.
+  Status: aligned. Owns the serial and protocol boundary. ROS-facing code now imports legacy root modules only through package-local shims inside `rasprover_base`.
 
 - `ros2_ws/src/rasprover_msgs`
   Target: `rasprover_msgs`
@@ -72,6 +72,9 @@ This note maps the current repository layout to the target blueprint without cha
 These new launch files prefer blueprint-aligned package names such as `rasprover_control`, `rasprover_ui`, and `rasprover_slam`, while compatibility paths remain available through the legacy package names.
 
 ## Ownership Status
+
+- `rasprover_base`
+  Owns the ROS hardware boundary and the package-local shims that isolate legacy `base_driver`, `base_ctrl`, and `state_store` access.
 
 - `rasprover_control`
   Owns the runtime implementations for mux, joystick bridge, local joy input, and arbiter helpers.
