@@ -170,7 +170,12 @@ def run_stage(driver, writer, stage, sample_period, start_time):
 
     print("[slam_capture] stage=%s started. Press Enter to stop this stage." % stage.name)
     driver.send_lr(stage.left, stage.right)
+    last_command_time = time.time()
     while True:
+        now = time.time()
+        if now - last_command_time >= 0.1:
+            driver.send_lr(stage.left, stage.right)
+            last_command_time = now
         drain_feedback(driver, writer, stage.name, stage.left, stage.right, start_time)
         if select.select([sys.stdin], [], [], 0.0)[0]:
             sys.stdin.readline()
