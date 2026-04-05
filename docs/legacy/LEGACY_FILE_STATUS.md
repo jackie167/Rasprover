@@ -35,38 +35,27 @@ These components are still live dependencies of the ROS stack, but the root-leve
 
 These implementations cannot be moved to `tutorial/` without breaking the current ROS stack.
 
-## Still Active In Legacy Fallback Runtime Only
+## Retired Legacy Fallback Runtime
 
-These are not part of the primary ROS runtime, but they are still needed if you want the old fallback app path to work.
+The old fallback app path is no longer supported as a runtime mode.
 
-- `app.py`
-- `web_ui.py`
+Archived code now lives under:
+
+- `/home/ws/ugv_rpi/tutorial_en/legacy_runtime_archive/`
+
+This includes the old:
+
+- `app.py` behavior
+- `web_ui.py` behavior
 - `cmd_mux.py`
 - `command_service.py`
 - `command_router.py`
 - `audio_ctrl.py`
 - `os_info.py`
 
-Current status:
-- `app.py` and `web_ui.py` root files are now compatibility wrappers.
-- `cmd_mux.py`, `command_service.py`, and `command_router.py` root files are now compatibility wrappers.
-- `audio_ctrl.py` and `os_info.py` root files are now compatibility wrappers.
-- their fallback implementation code now lives under `/home/ws/ugv_rpi/legacy_runtime/`
-
-These are still candidates for future archival once the fallback runtime is intentionally retired.
-
 ## Operational Wrappers
 
-These are legacy/fallback operator entrypoints rather than core runtime logic:
-
-- `start_legacy_app.sh`
-- `status_legacy_app.sh`
-- `stop_legacy_app.sh`
-- `restart_app.sh`
-- `status_app.sh`
-- `stop_app.sh`
-
-They should stay until the team decides the legacy fallback app is no longer needed.
+The legacy operator scripts have been retired with the fallback runtime.
 
 ## Root Shim Retirement Matrix
 
@@ -87,42 +76,27 @@ They should stay until the team decides the legacy fallback app is no longer nee
   Keep for now.
   Still useful as a compatibility import while the CV path remains transitional.
 
-- `app.py`
-  Can be retired once the team officially drops the fallback app runtime entrypoint.
-
-- `web_ui.py`
-  Can be retired with `app.py`.
-
-- `cmd_mux.py`
-  Can be retired with the fallback app runtime.
-
-- `command_service.py`
-  Can be retired with the fallback app runtime.
-
-- `command_router.py`
-  Can be retired with the fallback app runtime.
-
 - `audio_ctrl.py`
-  Now only a fallback/compatibility shim.
-  ROS-side `rasprover_ui` no longer imports it from root.
+  Removed from the active root/runtime path.
+  ROS-side `rasprover_ui` now owns its own audio helper module.
 
 - `os_info.py`
-  Now only a fallback/compatibility shim for the legacy runtime path.
+  Removed from the active root/runtime path.
 
 ## Current Source Dependency Status
 
 Verified in repository source after refactor:
 
 - no maintained source file imports `base_driver`, `base_ctrl`, `state_store`, or `cv_ctrl` from repo root
-- ROS-side `rasprover_ui` imports audio support from `legacy_runtime` directly, not from `audio_ctrl.py`
-- remaining root shim usage is now primarily operator compatibility, not package-to-package dependency
+- ROS-side `rasprover_ui` imports audio support from its own package module
+- remaining root shim usage is now primarily operator compatibility around package-owned modules
 
 ## What Can Be Moved Later
 
 The following move is already done:
 
-- legacy fallback app files now live under `legacy_runtime/`
-- root files are compatibility wrappers where needed
+- legacy fallback app files now live under `tutorial_en/legacy_runtime_archive/`
+- fallback root wrappers and scripts have been removed
 
 The following move is not safe yet:
 

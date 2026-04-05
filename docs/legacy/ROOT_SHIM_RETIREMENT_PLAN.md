@@ -22,34 +22,14 @@ As of this snapshot:
   or `cv_ctrl` from the repository root.
 - maintained tools no longer import `base_driver` from the repository root.
 - `rasprover_ui` no longer imports `audio_ctrl` from the repository root.
-- the fallback Flask runtime is isolated under `legacy_runtime/`.
+- the fallback Flask runtime has been retired and archived under
+  `tutorial_en/legacy_runtime_archive/`.
 
 This means most root `.py` files are now compatibility-only.
 
-## Shims To Keep For Now
+## Remaining Shims To Keep For Now
 
 These should stay until a deliberate retirement decision is made.
-
-- `app.py`
-  Keep while the fallback legacy runtime is still intentionally supported.
-
-- `web_ui.py`
-  Keep while the fallback legacy runtime is still intentionally supported.
-
-- `cmd_mux.py`
-  Keep while the fallback legacy runtime is still intentionally supported.
-
-- `command_service.py`
-  Keep while the fallback legacy runtime is still intentionally supported.
-
-- `command_router.py`
-  Keep while the fallback legacy runtime is still intentionally supported.
-
-- `audio_ctrl.py`
-  Keep while the fallback legacy runtime is still intentionally supported.
-
-- `os_info.py`
-  Keep while the fallback legacy runtime is still intentionally supported.
 
 - `base_driver.py`
   Keep while operators and ad hoc diagnostics may still run old imports from the
@@ -71,26 +51,17 @@ These should stay until a deliberate retirement decision is made.
 
 Already completed:
 
-- move implementation ownership into ROS packages and `legacy_runtime/`
+- move implementation ownership into ROS packages and an isolated legacy archive path
 - stop maintained source packages from importing root shims
 - stop maintained tools from importing root shims where practical
 
 ### Phase 2
 
-Retire root fallback-app shims together:
+Completed:
 
-- `app.py`
-- `web_ui.py`
-- `cmd_mux.py`
-- `command_service.py`
-- `command_router.py`
-- `audio_ctrl.py`
-- `os_info.py`
-
-Precondition:
-
-- the team agrees the fallback legacy runtime is no longer an operational mode
-- `start_legacy_app.sh`, `stop_legacy_app.sh`, and `status_legacy_app.sh` are retired
+- fallback app shims retired from the active root/runtime path
+- fallback operator scripts retired
+- legacy app code archived under `tutorial_en/legacy_runtime_archive/`
 
 ### Phase 3
 
@@ -118,7 +89,7 @@ Precondition:
 
 ## Acceptance Checks Before Deleting Any Shim
 
-Before deleting a root shim, verify all of the following:
+Before deleting a remaining root shim, verify all of the following:
 
 1. `grep` or audit tool shows no maintained source imports of the root shim.
 2. shell entrypoints do not target the shim as their real runtime.
@@ -134,5 +105,5 @@ cd /home/ws/ugv_rpi
 ./ugv-env/bin/python tools/diagnostics/root_shim_audit.py
 ```
 
-This provides a quick report of where root shim imports still appear in the
-repository source tree.
+This provides a quick report of where the remaining root shim imports still
+appear in the repository source tree.

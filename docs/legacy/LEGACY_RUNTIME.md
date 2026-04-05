@@ -8,24 +8,17 @@ The primary runtime is now the ROS full stack:
 - `robot_base_node`
 - `cv_node`
 
-The following files are kept only as fallback/dev paths and should not be
-treated as the main runtime anymore:
+The old fallback Flask-first runtime is retired.
 
-- `app.py`
-- `web_ui.py`
-- `cmd_mux.py`
-- `command_router.py`
-- `command_service.py`
-- `start_legacy_app.sh`
-- `stop_legacy_app.sh`
-- `status_legacy_app.sh`
+Archived legacy code now lives in:
 
-Implementation note:
+- `/home/ws/ugv_rpi/tutorial_en/legacy_runtime_archive/`
 
-- `app.py`, `web_ui.py`, `cmd_mux.py`, `command_router.py`, and `command_service.py` now forward to
-  `/home/ws/ugv_rpi/legacy_runtime/`
-- `audio_ctrl.py` and `os_info.py` root files now also forward to
-  `/home/ws/ugv_rpi/legacy_runtime/`
+Archive contents include:
+
+- old app bootstrap and Flask web runtime
+- old in-process mux and command service path
+- legacy audio and host-info helpers
 
 What is still legacy-only today:
 
@@ -53,6 +46,5 @@ tutorial/archive storage yet.
 
 Operational note:
 
-- legacy operator scripts now start the fallback runtime through
-  `python -m legacy_runtime.app_main`
-- the root `app.py` file remains only as a compatibility shim
+- the legacy runtime is no longer an operational mode
+- use the archive only to read old code and understand previous behavior

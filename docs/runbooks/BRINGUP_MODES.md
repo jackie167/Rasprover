@@ -79,28 +79,14 @@ The package-facing launch entrypoints live in:
 
 Use these when you want package-level launch semantics rather than shell-script orchestration.
 
-## Legacy Fallback Runtime
-
-The old fallback app runtime still exists, but it is no longer the primary system path.
-
-Commands:
-```bash
-cd /home/ws/ugv_rpi
-bash ./start_legacy_app.sh
-bash ./status_legacy_app.sh
-bash ./stop_legacy_app.sh
-```
-
-Use this only when comparing behavior against the old app architecture or when debugging migration gaps.
-
 ## Root Shim Policy
 
-Root-level Python files such as `app.py`, `web_ui.py`, `audio_ctrl.py`, and
-`base_driver.py` are no longer implementation owners.
+Root-level Python files such as `base_driver.py`, `base_ctrl.py`, `state_store.py`,
+and `cv_ctrl.py` are no longer implementation owners.
 
 Use them only for compatibility when an older operator habit still depends on
 their names. For new work:
 
 - use ROS packages for runtime code
-- use `legacy_runtime/` for fallback app behavior
+- use `tutorial_en/legacy_runtime_archive/` only to read archived legacy code
 - use `tools/` for diagnostics and calibration scripts

@@ -7,13 +7,6 @@ import re
 ROOT = Path(__file__).resolve().parents[2]
 
 TARGETS = {
-    "app": "app.py",
-    "web_ui": "web_ui.py",
-    "cmd_mux": "cmd_mux.py",
-    "command_service": "command_service.py",
-    "command_router": "command_router.py",
-    "audio_ctrl": "audio_ctrl.py",
-    "os_info": "os_info.py",
     "base_driver": "base_driver.py",
     "base_ctrl": "base_ctrl.py",
     "state_store": "state_store.py",

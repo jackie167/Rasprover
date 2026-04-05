@@ -56,13 +56,12 @@ This note maps the current repository layout to the target blueprint without cha
   Kept in place intentionally for operator convenience and backwards compatibility.
 
 - root Python compatibility wrappers
-  Several legacy root modules now forward into package-local or `legacy_runtime`
-  implementations so that the project root is no longer the primary ownership
-  location for active runtime logic.
+  The remaining root wrappers are now limited to transitional compatibility for
+  a few package-owned modules, rather than fallback app ownership.
 
-- `legacy_runtime/`
-  Now serves as the explicit containment area for the fallback Flask-first app
-  runtime and its remaining helper modules.
+- `tutorial_en/legacy_runtime_archive/`
+  Holds archived fallback Flask-first app code for reference only. It is no
+  longer part of the active runtime.
 
 ## Bringup Status
 
@@ -103,8 +102,9 @@ These new launch files prefer blueprint-aligned package names such as `rasprover
 - `rasprover_localization`
   Kept for compatibility entrypoints and legacy config paths while runtime ownership moves into `rasprover_sensors` and `rasprover_slam`.
 
-- `legacy_runtime/`
-  Owns the remaining fallback app support modules such as the legacy in-process mux and command service logic.
+- `tutorial_en/legacy_runtime_archive/`
+  Holds retired fallback app support modules such as the old in-process mux and
+  command service logic for code-reading only.
 
 ## Deferred Structural Refactors
 
@@ -120,9 +120,7 @@ No runtime code path was changed by this organization pass. Existing commands st
 
 ## Retirement Direction
 
-The remaining root wrappers are now primarily operator-compatibility shims.
-Retirement should proceed only after:
-
-- fallback app support is intentionally dropped
-- operator-facing scripts stop referring to root shim names
-- audit checks show no maintained source or tooling imports of those shims
+The fallback app path has been retired. Remaining root wrappers are now only
+operator-compatibility shims around package-owned code. Future retirement should
+focus on `base_driver.py`, `base_ctrl.py`, `state_store.py`, and `cv_ctrl.py`
+once operator habits no longer depend on them.
