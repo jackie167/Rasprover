@@ -4,6 +4,7 @@ set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_DIR="$PROJECT_DIR/.ros_motion_pids"
+RUNTIME_LOG_DIR="$PROJECT_DIR/runtime_logs"
 
 "$PROJECT_DIR/status_ros_motion_stack.sh"
 echo
@@ -22,8 +23,8 @@ fi
 pgrep -af "/rasprover_cv/lib/rasprover_cv/cv_node" || true
 echo
 echo "-- cv --"
-if [ -f "$PROJECT_DIR/ros_cv.log" ]; then
-  tail -n 20 "$PROJECT_DIR/ros_cv.log"
+if [ -f "$RUNTIME_LOG_DIR/ros_cv.log" ]; then
+  tail -n 20 "$RUNTIME_LOG_DIR/ros_cv.log"
 else
-  echo "Log file not found: $PROJECT_DIR/ros_cv.log"
+  echo "Log file not found: $RUNTIME_LOG_DIR/ros_cv.log"
 fi

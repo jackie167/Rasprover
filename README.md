@@ -95,7 +95,7 @@ If the program fails to run and encounters errors related to v4l2.py during runt
     sudo rm ugv-env/lib/python3.11/site-packages/v4l2.py  
     sudo rm /home/[your_user_name]/.local/lib/python3.11/site-packages/v4l2.py  
 
-Now you can restart the fallback legacy runtime if you still need it, but the preferred runtime is the ROS stack via `start_ros_full_stack.sh`.
+Now you can restart the ROS stack via `start_ros_full_stack.sh`.
 
 # License
 ugv_rpi for the Raspberry Pi: an open source robotics platform for the Raspberry Pi.

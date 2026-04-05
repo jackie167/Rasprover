@@ -6,8 +6,9 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROS_WS="$PROJECT_DIR/ros2_ws"
 LOG_DIR="$PROJECT_DIR/.roslog"
 PID_DIR="$PROJECT_DIR/.ros_motion_pids"
+RUNTIME_LOG_DIR="$PROJECT_DIR/runtime_logs"
 
-mkdir -p "$LOG_DIR" "$PID_DIR"
+mkdir -p "$LOG_DIR" "$PID_DIR" "$RUNTIME_LOG_DIR"
 
 "$PROJECT_DIR/stop_ros_slam_stack.sh" >/dev/null 2>&1 || true
 sleep 1
@@ -16,7 +17,7 @@ start_node() {
   local name="$1"
   local exec_path="$2"
   local args="$3"
-  local log_file="$PROJECT_DIR/ros_slam_${name}.log"
+  local log_file="$RUNTIME_LOG_DIR/ros_slam_${name}.log"
   setsid bash -lc "
     export ROS_LOG_DIR='$LOG_DIR'
     export ROS_LOCALHOST_ONLY=1
@@ -53,10 +54,10 @@ sleep 1
 echo "ros slam stack started"
 echo "pid dir: $PID_DIR"
 echo "logs:"
-echo "  $PROJECT_DIR/ros_slam_base.log"
-echo "  $PROJECT_DIR/ros_slam_bridge.log"
-echo "  $PROJECT_DIR/ros_slam_ekf.log"
-echo "  $PROJECT_DIR/ros_slam_slam.log"
+echo "  $RUNTIME_LOG_DIR/ros_slam_base.log"
+echo "  $RUNTIME_LOG_DIR/ros_slam_bridge.log"
+echo "  $RUNTIME_LOG_DIR/ros_slam_ekf.log"
+echo "  $RUNTIME_LOG_DIR/ros_slam_slam.log"
 for pid_file in "$PID_DIR"/slam_*.pid; do
   [ -f "$pid_file" ] || continue
   node_name="$(basename "$pid_file" .pid)"

@@ -9,8 +9,7 @@ templates/videos/video*
 # Runtime and local logs
 .roslog/
 .ros_motion_pids/
-ros_cv.log
-ros_motion_*.log
+runtime_logs/
 
 # Build and install artifacts
 build/
@@ -22,7 +21,7 @@ ros2_ws/install/
 ros2_ws/log/
 
 # Local captures and generated analysis files
-slam_capture_*.csv
+tools/calibration/captures/
 
 # Large third-party source trees kept local for workspace builds
 ros2_ws/src/ament/

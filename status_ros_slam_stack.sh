@@ -2,6 +2,7 @@
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_DIR="$PROJECT_DIR/.ros_motion_pids"
+RUNTIME_LOG_DIR="$PROJECT_DIR/runtime_logs"
 
 echo "== slam node pids =="
 for name in slam_base slam_bridge slam_ekf slam_slam; do
@@ -29,7 +30,7 @@ echo
 
 echo "== slam logs =="
 for name in base bridge ekf slam; do
-  log_file="$PROJECT_DIR/ros_slam_${name}.log"
+  log_file="$RUNTIME_LOG_DIR/ros_slam_${name}.log"
   echo "-- $name --"
   if [ -f "$log_file" ]; then
     tail -n 20 "$log_file"

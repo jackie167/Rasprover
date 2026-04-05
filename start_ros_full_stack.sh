@@ -6,9 +6,10 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROS_WS="$PROJECT_DIR/ros2_ws"
 LOG_DIR="$PROJECT_DIR/.roslog"
 PID_DIR="$PROJECT_DIR/.ros_motion_pids"
-CV_LOG_FILE="$PROJECT_DIR/ros_cv.log"
+RUNTIME_LOG_DIR="$PROJECT_DIR/runtime_logs"
+CV_LOG_FILE="$RUNTIME_LOG_DIR/ros_cv.log"
 
-mkdir -p "$LOG_DIR" "$PID_DIR"
+mkdir -p "$LOG_DIR" "$PID_DIR" "$RUNTIME_LOG_DIR"
 
 "$PROJECT_DIR/start_ros_motion_stack.sh"
 

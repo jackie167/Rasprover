@@ -205,7 +205,11 @@ def main():
     parser.add_argument("--baud", type=int, default=115200, help="Serial baud rate.")
     parser.add_argument("--profile", choices=sorted(PROFILES), default="basic", help="Interactive stage profile to run.")
     parser.add_argument("--sample-period", type=float, default=0.02, help="Capture loop period in seconds.")
-    parser.add_argument("--output", default="", help="CSV output path. Default is timestamped file in current dir.")
+    parser.add_argument(
+        "--output",
+        default="",
+        help="CSV output path. Default is a timestamped file in tools/calibration/captures/.",
+    )
     parser.add_argument("--skip-init", action="store_true", help="Do not send the usual startup commands.")
     args = parser.parse_args()
 
@@ -214,7 +218,9 @@ def main():
         raise SystemExit("No serial device found. Tried /dev/serial0, /dev/ttyAMA0, /dev/ttyUSB*, /dev/ttyACM*.")
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
-    output_path = args.output or f"slam_capture_{args.profile}_{timestamp}.csv"
+    default_dir = Path(__file__).resolve().parent / "captures"
+    default_dir.mkdir(parents=True, exist_ok=True)
+    output_path = args.output or str(default_dir / f"slam_capture_{args.profile}_{timestamp}.csv")
     stages = PROFILES[args.profile]
 
     print("[slam_capture] port=%s baud=%d profile=%s output=%s" % (port, args.baud, args.profile, output_path))
