@@ -44,6 +44,7 @@ These are not part of the primary ROS runtime, but they are still needed if you 
 - `command_router.py`
 
 Current status:
+- `app.py` and `web_ui.py` root files are now compatibility wrappers.
 - `cmd_mux.py`, `command_service.py`, and `command_router.py` root files are now compatibility wrappers.
 - their fallback implementation code now lives under `/home/ws/ugv_rpi/legacy_runtime/`
 

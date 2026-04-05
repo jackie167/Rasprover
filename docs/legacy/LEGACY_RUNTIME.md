@@ -22,7 +22,7 @@ treated as the main runtime anymore:
 
 Implementation note:
 
-- `cmd_mux.py`, `command_router.py`, and `command_service.py` now forward to
+- `app.py`, `web_ui.py`, `cmd_mux.py`, `command_router.py`, and `command_service.py` now forward to
   `/home/ws/ugv_rpi/legacy_runtime/`
 
 What is still legacy-only today:
