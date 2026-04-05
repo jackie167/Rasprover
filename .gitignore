@@ -5,3 +5,41 @@ tutorial_en/.ipynb_checkpoints/
 tutorial_cn/.ipynb_checkpoints/
 templates/pictures/photo*
 templates/videos/video*
+
+# Runtime and local logs
+.roslog/
+.ros_motion_pids/
+ros_cv.log
+ros_motion_*.log
+
+# Build and install artifacts
+build/
+install/
+log/
+build_logs/
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# Local captures and generated analysis files
+slam_capture_*.csv
+
+# Large third-party source trees kept local for workspace builds
+ros2_ws/src/ament/
+ros2_ws/src/bond_core/
+ros2_ws/src/diagnostics/
+ros2_ws/src/eProsima/
+ros2_ws/src/eclipse-cyclonedds/
+ros2_ws/src/eclipse-iceoryx/
+ros2_ws/src/gazebo-release/
+ros2_ws/src/geographic_info/
+ros2_ws/src/osrf/
+ros2_ws/src/robot_localization/
+ros2_ws/src/ros/
+ros2_ws/src/ros-perception/
+ros2_ws/src/ros-planning/
+ros2_ws/src/ros-tooling/
+ros2_ws/src/ros-visualization/
+ros2_ws/src/ros2/
+ros2_ws/src/ros2-rust/
+ros2_ws/src/slam_toolbox/
