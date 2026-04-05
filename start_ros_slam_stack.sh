@@ -42,12 +42,12 @@ sleep 1
 start_node \
   "ekf" \
   "$ROS_WS/install/robot_localization/lib/robot_localization/ekf_node" \
-  "--ros-args --params-file '$ROS_WS/src/rasprover_localization/config/ekf_wheel_imu.yaml' --log-level info"
+  "--ros-args --params-file '$ROS_WS/src/rasprover_slam/config/ekf_wheel_imu.yaml' --log-level info"
 sleep 1
 start_node \
   "slam" \
   "$ROS_WS/install/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node" \
-  "--ros-args --params-file '$ROS_WS/src/rasprover_localization/config/slam_toolbox_online_async.yaml' --log-level info"
+  "--ros-args --params-file '$ROS_WS/src/rasprover_slam/config/slam_toolbox_online_async.yaml' --log-level info"
 sleep 1
 
 echo "ros slam stack started"

@@ -42,22 +42,22 @@ start_node \
 sleep 1
 start_node \
   "mux" \
-  "$ROS_WS/install/rasprover_mux/lib/rasprover_mux/command_mux_node" \
+  "$ROS_WS/install/rasprover_control/lib/rasprover_control/command_mux_node" \
   "--ros-args --log-level info"
 sleep 1
 start_node \
   "joy" \
-  "$ROS_WS/install/rasprover_mux/lib/rasprover_mux/local_joy_node" \
+  "$ROS_WS/install/rasprover_control/lib/rasprover_control/local_joy_node" \
   "--ros-args --log-level info"
 sleep 1
 start_node \
   "joystick" \
-  "$ROS_WS/install/rasprover_mux/lib/rasprover_mux/joystick_teleop_node" \
+  "$ROS_WS/install/rasprover_control/lib/rasprover_control/joystick_bridge_node" \
   "--ros-args --log-level info"
 sleep 1
 start_node \
   "web" \
-  "$ROS_WS/install/rasprover_web/lib/rasprover_web/web_bridge_node" \
+  "$ROS_WS/install/rasprover_ui/lib/rasprover_ui/web_bridge_node" \
   "--ros-args -p port:=5050 --log-level info"
 sleep 2
 

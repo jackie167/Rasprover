@@ -25,12 +25,20 @@ stop_pid_file "$PID_DIR/base.pid"
 
 pkill -f "/rasprover_base/lib/rasprover_base/robot_base_node" || true
 pkill -f "/rasprover_localization/lib/rasprover_localization/slam_sensor_bridge_node" || true
+pkill -f "/rasprover_control/lib/rasprover_control/command_mux_node" || true
+pkill -f "/rasprover_control/lib/rasprover_control/local_joy_node" || true
+pkill -f "/rasprover_control/lib/rasprover_control/joystick_bridge_node" || true
+pkill -f "/rasprover_ui/lib/rasprover_ui/web_bridge_node" || true
 pkill -f "/rasprover_mux/lib/rasprover_mux/command_mux_node" || true
 pkill -f "/rasprover_mux/lib/rasprover_mux/local_joy_node" || true
 pkill -f "/rasprover_mux/lib/rasprover_mux/joystick_teleop_node" || true
 pkill -f "/rasprover_web/lib/rasprover_web/web_bridge_node" || true
 pkill -f "ros2 run rasprover_base robot_base_node" || true
 pkill -f "ros2 run rasprover_localization slam_sensor_bridge_node" || true
+pkill -f "ros2 run rasprover_control command_mux_node" || true
+pkill -f "ros2 run rasprover_control local_joy_node" || true
+pkill -f "ros2 run rasprover_control joystick_bridge_node" || true
+pkill -f "ros2 run rasprover_ui web_bridge_node" || true
 pkill -f "ros2 run rasprover_mux command_mux_node" || true
 pkill -f "ros2 run rasprover_mux local_joy_node" || true
 pkill -f "ros2 run rasprover_mux joystick_teleop_node" || true
