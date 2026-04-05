@@ -3,9 +3,21 @@
 import argparse
 import glob
 import json
+import sys
 import time
+from pathlib import Path
 
-from base_driver import BaseDriver
+
+def ensure_ros_package_path():
+    repo_root = Path(__file__).resolve().parents[2]
+    package_root = repo_root / "ros2_ws" / "src" / "rasprover_base"
+    if str(package_root) not in sys.path:
+        sys.path.insert(0, str(package_root))
+
+
+ensure_ros_package_path()
+
+from rasprover_base.base_driver import BaseDriver
 
 
 DEFAULT_BOOT_COMMANDS = (

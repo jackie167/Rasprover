@@ -72,14 +72,16 @@ They should stay until the team decides the legacy fallback app is no longer nee
 
 - `base_ctrl.py`
   Keep for now.
-  Still used by local diagnostic tools and any operator habits that import `base_ctrl` from repo root.
+  No active source package imports it from root now.
+  Keep only for operator compatibility and ad hoc local habits.
 
 - `base_driver.py`
   Keep for now.
-  Still used by local diagnostic tools and capture scripts that are designed to run without ROS package imports in the command line.
+  No active source package or maintained tool imports it from root now.
+  Keep only for operator compatibility and ad hoc local habits.
 
 - `state_store.py`
-  Can be retired later after confirming no non-ROS scripts import it from root.
+  Can be retired later after confirming no user-side ad hoc scripts import it from root.
 
 - `cv_ctrl.py`
   Keep for now.
@@ -106,6 +108,14 @@ They should stay until the team decides the legacy fallback app is no longer nee
 
 - `os_info.py`
   Now only a fallback/compatibility shim for the legacy runtime path.
+
+## Current Source Dependency Status
+
+Verified in repository source after refactor:
+
+- no maintained source file imports `base_driver`, `base_ctrl`, `state_store`, or `cv_ctrl` from repo root
+- ROS-side `rasprover_ui` imports audio support from `legacy_runtime` directly, not from `audio_ctrl.py`
+- remaining root shim usage is now primarily operator compatibility, not package-to-package dependency
 
 ## What Can Be Moved Later
 
