@@ -55,9 +55,10 @@ This note maps the current repository layout to the target blueprint without cha
 - root shell entrypoints
   Kept in place intentionally for operator convenience and backwards compatibility.
 
-- root Python compatibility wrappers
-  The remaining root wrappers are now limited to transitional compatibility for
-  a few package-owned modules, rather than fallback app ownership.
+- root Python runtime wrappers
+  The old root-level runtime wrappers have been retired. Runtime ownership now
+  lives in ROS packages and archived fallback code has been moved out of the
+  active root path.
 
 - `tutorial_en/legacy_runtime_archive/`
   Holds archived fallback Flask-first app code for reference only. It is no
@@ -112,15 +113,15 @@ These are intentionally not done yet because they would change package names, im
 
 - rename `rasprover_mux` to `rasprover_control`
 - rename `rasprover_web` to `rasprover_ui`
-- relocate legacy root Python modules like `base_ctrl.py` and `base_driver.py` into package-local adapter folders
+- continue internal cleanup inside `rasprover_base` and `rasprover_cv` so legacy implementation details become easier to replace later
 
 ## Runtime Rule Kept Intact
 
-No runtime code path was changed by this organization pass. Existing commands still work through root wrappers and current package names.
+The active runtime remains ROS-first. Legacy fallback runtime code has been
+retired from operation and archived for reference only.
 
 ## Retirement Direction
 
-The fallback app path has been retired. Remaining root wrappers are now only
-operator-compatibility shims around package-owned code. Future retirement should
-focus on `base_driver.py`, `base_ctrl.py`, `state_store.py`, and `cv_ctrl.py`
-once operator habits no longer depend on them.
+The fallback app path has been retired and the final root Python shims have
+also been removed. Future cleanup should focus on simplifying package-internal
+legacy implementation details rather than deleting root compatibility files.

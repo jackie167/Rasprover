@@ -27,7 +27,7 @@ def find_repo_root():
             return candidate
 
     for candidate in Path(__file__).resolve().parents:
-        if (candidate / 'config.yaml').exists() and (candidate / 'cv_ctrl.py').exists():
+        if (candidate / 'config.yaml').exists():
             return candidate
 
     cwd_candidate = Path.cwd().resolve()

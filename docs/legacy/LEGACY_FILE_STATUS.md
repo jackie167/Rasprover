@@ -6,31 +6,28 @@ Can the remaining root-level legacy Python files be moved into `tutorial/` or ar
 
 ## Short Answer
 
-Mostly no, but the situation is cleaner now.
+The answer is now split in two:
 
-The active ROS runtime no longer depends on most root-level legacy files. What
-remains at the root is mostly a compatibility shim layer plus a few config/tool
-entrypoints.
+- fallback app code has been archived into `tutorial_en/legacy_runtime_archive/`
+- active ROS-backed legacy implementation details now live inside ROS packages,
+  not in root-level Python files
 
 ## Still Active In ROS Runtime
 
-These components are still live dependencies of the ROS stack, but the root-level files are wrapper entrypoints only.
+These components are still live dependencies of the ROS stack, but they no
+longer exist as root-level Python files.
 
-- `base_ctrl.py`
-  Root file is now a compatibility wrapper.
-  Runtime implementation now lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/base_ctrl.py`.
+- `base_ctrl`
+  Runtime implementation lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/base_ctrl.py`.
 
-- `base_driver.py`
-  Root file is now a compatibility wrapper.
-  Runtime implementation now lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/base_driver.py`.
+- `base_driver`
+  Runtime implementation lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/base_driver.py`.
 
-- `state_store.py`
-  Root file is now a compatibility wrapper.
-  Runtime implementation now lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/state_store.py`.
+- `state_store`
+  Runtime implementation lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/state_store.py`.
 
-- `cv_ctrl.py`
-  Root file is now a compatibility wrapper.
-  Runtime implementation now lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_cv/rasprover_cv/cv_ctrl.py`.
+- `cv_ctrl`
+  Runtime implementation lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_cv/rasprover_cv/cv_ctrl.py`.
   The ROS CV node is still a wrapper around `OpencvFuncs`, not yet a full rewrite.
 
 These implementations cannot be moved to `tutorial/` without breaking the current ROS stack.
@@ -57,39 +54,13 @@ This includes the old:
 
 The legacy operator scripts have been retired with the fallback runtime.
 
-## Root Shim Retirement Matrix
-
-- `base_ctrl.py`
-  Keep for now.
-  No active source package imports it from root now.
-  Keep only for operator compatibility and ad hoc local habits.
-
-- `base_driver.py`
-  Keep for now.
-  No active source package or maintained tool imports it from root now.
-  Keep only for operator compatibility and ad hoc local habits.
-
-- `state_store.py`
-  Can be retired later after confirming no user-side ad hoc scripts import it from root.
-
-- `cv_ctrl.py`
-  Keep for now.
-  Still useful as a compatibility import while the CV path remains transitional.
-
-- `audio_ctrl.py`
-  Removed from the active root/runtime path.
-  ROS-side `rasprover_ui` now owns its own audio helper module.
-
-- `os_info.py`
-  Removed from the active root/runtime path.
-
 ## Current Source Dependency Status
 
 Verified in repository source after refactor:
 
 - no maintained source file imports `base_driver`, `base_ctrl`, `state_store`, or `cv_ctrl` from repo root
 - ROS-side `rasprover_ui` imports audio support from its own package module
-- remaining root shim usage is now primarily operator compatibility around package-owned modules
+- root shim usage for these names is fully retired
 
 ## What Can Be Moved Later
 
@@ -100,13 +71,14 @@ The following move is already done:
 
 The following move is not safe yet:
 
-- moving `base_ctrl.py`, `base_driver.py`, `state_store.py`, or `cv_ctrl.py` into `tutorial/`
+- moving package-owned runtime implementations such as `rasprover_base/base_ctrl.py`
+  or `rasprover_cv/cv_ctrl.py` into `tutorial/`
 
 ## Recommended Next Step
 
 Do not move the active legacy-backed runtime files into `tutorial/`.
 
 Instead:
-- keep only the minimum root shims still needed for operator compatibility
-- document exactly which ones can be retired next
-- continue shrinking their surface area by moving ownership into ROS packages first
+- keep runtime ownership inside ROS packages
+- archive only truly retired code in `tutorial_en/legacy_runtime_archive/`
+- continue shrinking package-internal legacy implementation details over time

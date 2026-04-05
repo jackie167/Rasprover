@@ -79,13 +79,9 @@ The package-facing launch entrypoints live in:
 
 Use these when you want package-level launch semantics rather than shell-script orchestration.
 
-## Root Shim Policy
+## Legacy Code Policy
 
-Root-level Python files such as `base_driver.py`, `base_ctrl.py`, `state_store.py`,
-and `cv_ctrl.py` are no longer implementation owners.
-
-Use them only for compatibility when an older operator habit still depends on
-their names. For new work:
+Legacy runtime code is now archive-only. For new work:
 
 - use ROS packages for runtime code
 - use `tutorial_en/legacy_runtime_archive/` only to read archived legacy code

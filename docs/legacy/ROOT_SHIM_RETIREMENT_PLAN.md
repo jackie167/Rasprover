@@ -27,23 +27,15 @@ As of this snapshot:
 
 This means most root `.py` files are now compatibility-only.
 
-## Remaining Shims To Keep For Now
+## Final Root Shim Status
 
-These should stay until a deliberate retirement decision is made.
+The remaining root Python shims have now been retired.
 
-- `base_driver.py`
-  Keep while operators and ad hoc diagnostics may still run old imports from the
-  repository root.
+What remains active is package-owned code inside:
 
-- `base_ctrl.py`
-  Keep while operators and ad hoc diagnostics may still run old imports from the
-  repository root.
-
-- `state_store.py`
-  Keep until it is confirmed that no operator-side scripts import it from root.
-
-- `cv_ctrl.py`
-  Keep while the CV subsystem is still transitional.
+- `rasprover_base`
+- `rasprover_cv`
+- `rasprover_ui`
 
 ## Safe Retirement Order
 
@@ -65,31 +57,22 @@ Completed:
 
 ### Phase 3
 
-Retire remaining operator-compatibility shims:
+Completed:
 
 - `base_driver.py`
 - `base_ctrl.py`
 - `state_store.py`
+- `cv_ctrl.py`
 
-Precondition:
-
-- no documented tool, script, or operator workflow still imports them from root
-- diagnostics and calibration workflows use package imports only
+were retired from the root after audit and package updates.
 
 ### Phase 4
 
-Retire the CV compatibility shim:
-
-- `cv_ctrl.py`
-
-Precondition:
-
-- the CV path is no longer transitional and no external script imports
-  `cv_ctrl` from root
+Future work moves from root-shim retirement to package-internal cleanup.
 
 ## Acceptance Checks Before Deleting Any Shim
 
-Before deleting a remaining root shim, verify all of the following:
+Before deleting a root shim, verify all of the following:
 
 1. `grep` or audit tool shows no maintained source imports of the root shim.
 2. shell entrypoints do not target the shim as their real runtime.
@@ -105,5 +88,5 @@ cd /home/ws/ugv_rpi
 ./ugv-env/bin/python tools/diagnostics/root_shim_audit.py
 ```
 
-This provides a quick report of where the remaining root shim imports still
+This provides a quick report of whether deleted legacy module names still
 appear in the repository source tree.
