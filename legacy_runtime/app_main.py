@@ -9,14 +9,14 @@ import os
 import threading
 import time
 
-import audio_ctrl
-import os_info
 from app_config import AppConfig
 from rasprover_base.base_driver import BaseDriver
 from rasprover_base.state_store import StateStore
 from rasprover_cv.cv_ctrl import OpencvFuncs
 
+from . import audio_ctrl, os_info
 from .cmd_mux import CmdMux
+from .paths import REPO_ROOT
 from .web_ui import WebUI
 
 
@@ -34,9 +34,8 @@ def create_base_driver():
     return BaseDriver('/dev/serial0', 115200)
 
 
-curpath = os.path.realpath(__file__)
-THIS_PATH = os.path.dirname(curpath)
-CONFIG_PATH = os.path.join(THIS_PATH, 'config.yaml')
+PROJECT_DIR = str(REPO_ROOT)
+CONFIG_PATH = str(REPO_ROOT / 'config.yaml')
 
 
 def create_runtime():
@@ -45,10 +44,10 @@ def create_runtime():
     base_driver = create_base_driver()
     base_driver.attach_state_store(state_store)
     cmd_mux = CmdMux(base_driver, app_config, state_store)
-    cvf = OpencvFuncs(THIS_PATH, cmd_mux)
+    cvf = OpencvFuncs(PROJECT_DIR, cmd_mux)
     cmd_mux.attach_cv_controller(cvf)
     system_info = os_info.SystemInfo()
-    web_ui = WebUI(THIS_PATH, CONFIG_PATH, app_config, cmd_mux, cvf, system_info, state_store)
+    web_ui = WebUI(PROJECT_DIR, CONFIG_PATH, app_config, cmd_mux, cvf, system_info, state_store)
 
     return {
         "app_config": app_config,
@@ -165,7 +164,7 @@ def main():
     print_startup_banner(runtime)
     cmd_mux.lights_ctrl(255, 255)
     audio_ctrl.play_random_audio("robot_started", False)
-    system_info.update_folder(THIS_PATH)
+    system_info.update_folder(PROJECT_DIR)
 
     if app_config.module_type == 1:
         arm_payload = {"T": app_config.cmd_arm_ctrl_ui, **app_config.arm_default_pose}

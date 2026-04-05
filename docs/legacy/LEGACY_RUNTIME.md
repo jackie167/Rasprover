@@ -24,6 +24,8 @@ Implementation note:
 
 - `app.py`, `web_ui.py`, `cmd_mux.py`, `command_router.py`, and `command_service.py` now forward to
   `/home/ws/ugv_rpi/legacy_runtime/`
+- `audio_ctrl.py` and `os_info.py` root files now also forward to
+  `/home/ws/ugv_rpi/legacy_runtime/`
 
 What is still legacy-only today:
 
@@ -48,3 +50,9 @@ What remains transitional but still active in ROS:
 These now forward to package-local implementations still consumed indirectly by
 `cv_node` and `rasprover_base`, so they are not ready to move into
 tutorial/archive storage yet.
+
+Operational note:
+
+- legacy operator scripts now start the fallback runtime through
+  `python -m legacy_runtime.app_main`
+- the root `app.py` file remains only as a compatibility shim

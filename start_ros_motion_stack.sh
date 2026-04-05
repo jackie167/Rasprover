@@ -11,6 +11,7 @@ mkdir -p "$LOG_DIR" "$PID_DIR"
 
 "$PROJECT_DIR/stop_ros_motion_stack.sh" >/dev/null 2>&1 || true
 pkill -f "$PROJECT_DIR/app.py" || true
+pkill -f "legacy_runtime.app_main" || true
 sleep 1
 
 start_node() {

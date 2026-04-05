@@ -42,10 +42,13 @@ These are not part of the primary ROS runtime, but they are still needed if you 
 - `cmd_mux.py`
 - `command_service.py`
 - `command_router.py`
+- `audio_ctrl.py`
+- `os_info.py`
 
 Current status:
 - `app.py` and `web_ui.py` root files are now compatibility wrappers.
 - `cmd_mux.py`, `command_service.py`, and `command_router.py` root files are now compatibility wrappers.
+- `audio_ctrl.py` and `os_info.py` root files are now compatibility wrappers.
 - their fallback implementation code now lives under `/home/ws/ugv_rpi/legacy_runtime/`
 
 These are still candidates for future archival once the fallback runtime is intentionally retired.
@@ -57,6 +60,9 @@ These are legacy/fallback operator entrypoints rather than core runtime logic:
 - `start_legacy_app.sh`
 - `status_legacy_app.sh`
 - `stop_legacy_app.sh`
+- `restart_app.sh`
+- `status_app.sh`
+- `stop_app.sh`
 
 They should stay until the team decides the legacy fallback app is no longer needed.
 

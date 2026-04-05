@@ -1,11 +1,12 @@
 #!/bin/bash
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_PATH="$PROJECT_DIR/app.py"
+APP_PATTERN="legacy_runtime.app_main"
+APP_SHIM="$PROJECT_DIR/app.py"
 LOG_FILE="$HOME/ugv.log"
 
-echo "== app.py processes =="
-pgrep -af "$APP_PATH" || echo "No app.py process found"
+echo "== legacy runtime processes =="
+pgrep -af "$APP_PATTERN" || pgrep -af "$APP_SHIM" || echo "No legacy runtime process found"
 echo
 
 echo "== serial users =="

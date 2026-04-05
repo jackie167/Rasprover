@@ -167,7 +167,7 @@ sudo cp -v -f /home/$(logname)/ugv_rpi/asound.conf /etc/asound.conf
 
 echo "Setup completed. Please to reboot your Raspberry Pi for the changes to take effect."
 
-echo "Use the command below to run app.py onboot."
+echo "Use the command below to run the ROS stack on boot."
 
 echo "sudo chmod +x autorun.sh"
 

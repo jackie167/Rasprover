@@ -1,7 +1,7 @@
 import json
 import shlex
 
-import audio_ctrl
+from . import audio_ctrl
 
 
 class CommandService:

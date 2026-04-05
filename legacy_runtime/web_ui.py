@@ -9,12 +9,12 @@ import json
 import os
 import uuid
 
-import audio_ctrl
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from flask import Flask, Response, jsonify, render_template, request, send_from_directory
 from flask_socketio import SocketIO
 from werkzeug.utils import secure_filename
 
+from . import audio_ctrl
 
 class WebUI:
     def __init__(self, project_path, config_path, app_config, cmd_mux, cvf, system_info, state_store):
