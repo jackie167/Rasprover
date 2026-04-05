@@ -27,6 +27,7 @@ class SlamSensorBridgeNode(Node):
         self.declare_parameter('imu_frame', 'imu_link')
         self.declare_parameter('publish_tf', True)
         self.declare_parameter('wheel_separation_m', 0.52)
+        self.declare_parameter('wheel_yaw_scale', 1.0)
         self.declare_parameter('gyro_scale', 1.0)
         self.declare_parameter('accel_scale', 1.0)
         self.declare_parameter('mag_scale', 1.0)
@@ -41,6 +42,7 @@ class SlamSensorBridgeNode(Node):
         self.imu_frame = self.get_parameter('imu_frame').get_parameter_value().string_value
         self.publish_tf = self.get_parameter('publish_tf').get_parameter_value().bool_value
         self.wheel_separation = self.get_parameter('wheel_separation_m').get_parameter_value().double_value
+        self.wheel_yaw_scale = self.get_parameter('wheel_yaw_scale').get_parameter_value().double_value
         self.gyro_scale = self.get_parameter('gyro_scale').get_parameter_value().double_value
         self.accel_scale = self.get_parameter('accel_scale').get_parameter_value().double_value
         self.mag_scale = self.get_parameter('mag_scale').get_parameter_value().double_value
@@ -65,8 +67,15 @@ class SlamSensorBridgeNode(Node):
         self.yaw = 0.0
 
         self.get_logger().info(
-            'slam_sensor_bridge_node raw=%s imu=%s mag=%s odom=%s wheel_separation=%.3f'
-            % (feedback_raw_topic, imu_topic, mag_topic, wheel_odom_topic, self.wheel_separation)
+            'slam_sensor_bridge_node raw=%s imu=%s mag=%s odom=%s wheel_separation=%.3f wheel_yaw_scale=%.3f'
+            % (
+                feedback_raw_topic,
+                imu_topic,
+                mag_topic,
+                wheel_odom_topic,
+                self.wheel_separation,
+                self.wheel_yaw_scale,
+            )
         )
 
     @staticmethod
@@ -167,6 +176,7 @@ class SlamSensorBridgeNode(Node):
 
         d_center = 0.5 * (d_left + d_right)
         d_theta = (d_right - d_left) / max(self.wheel_separation, self.motion_epsilon)
+        d_theta *= self.wheel_yaw_scale
         yaw_mid = self.yaw + 0.5 * d_theta
         self.x += d_center * math.cos(yaw_mid)
         self.y += d_center * math.sin(yaw_mid)

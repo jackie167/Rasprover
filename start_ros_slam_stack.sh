@@ -38,7 +38,7 @@ sleep 2
 start_node \
   "bridge" \
   "$ROS_WS/install/rasprover_sensors/lib/rasprover_sensors/slam_sensor_bridge_node" \
-  "--ros-args --log-level info"
+  "--ros-args -p wheel_yaw_scale:=${WHEEL_YAW_SCALE:-1.96} --log-level info"
 sleep 1
 start_node \
   "ekf" \

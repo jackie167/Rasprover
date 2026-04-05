@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -10,18 +11,22 @@ def generate_launch_description():
     ekf_config = LaunchConfiguration('ekf_config')
     odom_topic = LaunchConfiguration('odom_topic')
     path_topic = LaunchConfiguration('path_topic')
+    wheel_path_topic = LaunchConfiguration('wheel_path_topic')
     web_port = LaunchConfiguration('web_port')
+    with_web = LaunchConfiguration('with_web')
 
     return LaunchDescription([
         DeclareLaunchArgument('serial_port', default_value='/dev/ttyAMA0'),
         DeclareLaunchArgument('joy_topic', default_value='/joy'),
         DeclareLaunchArgument('web_port', default_value='5050'),
+        DeclareLaunchArgument('with_web', default_value='false'),
         DeclareLaunchArgument(
             'ekf_config',
             default_value='/home/ws/ugv_rpi/ros2_ws/src/rasprover_slam/config/ekf_wheel_imu.yaml',
         ),
         DeclareLaunchArgument('odom_topic', default_value='/odometry/filtered'),
         DeclareLaunchArgument('path_topic', default_value='/odom_path'),
+        DeclareLaunchArgument('wheel_path_topic', default_value='/wheel_odom_path'),
         Node(
             package='rasprover_base',
             executable='robot_base_node',
@@ -60,6 +65,7 @@ def generate_launch_description():
             name='web_bridge_node',
             output='screen',
             parameters=[{'port': web_port}],
+            condition=IfCondition(with_web),
         ),
         Node(
             package='robot_localization',
@@ -73,6 +79,23 @@ def generate_launch_description():
             executable='odometry_path_node',
             name='odometry_path_node',
             output='screen',
-            parameters=[{'odom_topic': odom_topic, 'path_topic': path_topic}],
+            parameters=[{
+                'odom_topic': odom_topic,
+                'path_topic': path_topic,
+                'min_translation': 0.005,
+                'min_rotation': 0.01,
+            }],
+        ),
+        Node(
+            package='rasprover_slam',
+            executable='odometry_path_node',
+            name='wheel_odometry_path_node',
+            output='screen',
+            parameters=[{
+                'odom_topic': '/wheel/odometry',
+                'path_topic': wheel_path_topic,
+                'min_translation': 0.005,
+                'min_rotation': 0.01,
+            }],
         ),
     ])

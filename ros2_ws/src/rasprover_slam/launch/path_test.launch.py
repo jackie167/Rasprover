@@ -9,6 +9,7 @@ def generate_launch_description():
     ekf_config = LaunchConfiguration('ekf_config')
     odom_topic = LaunchConfiguration('odom_topic')
     path_topic = LaunchConfiguration('path_topic')
+    wheel_path_topic = LaunchConfiguration('wheel_path_topic')
 
     return LaunchDescription([
         DeclareLaunchArgument('serial_port', default_value='/dev/ttyAMA0'),
@@ -18,6 +19,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument('odom_topic', default_value='/odometry/filtered'),
         DeclareLaunchArgument('path_topic', default_value='/odom_path'),
+        DeclareLaunchArgument('wheel_path_topic', default_value='/wheel_odom_path'),
         Node(
             package='rasprover_base',
             executable='robot_base_node',
@@ -61,6 +63,23 @@ def generate_launch_description():
             executable='odometry_path_node',
             name='odometry_path_node',
             output='screen',
-            parameters=[{'odom_topic': odom_topic, 'path_topic': path_topic}],
+            parameters=[{
+                'odom_topic': odom_topic,
+                'path_topic': path_topic,
+                'min_translation': 0.005,
+                'min_rotation': 0.01,
+            }],
+        ),
+        Node(
+            package='rasprover_slam',
+            executable='odometry_path_node',
+            name='wheel_odometry_path_node',
+            output='screen',
+            parameters=[{
+                'odom_topic': '/wheel/odometry',
+                'path_topic': wheel_path_topic,
+                'min_translation': 0.005,
+                'min_rotation': 0.01,
+            }],
         ),
     ])

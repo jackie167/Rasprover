@@ -20,7 +20,8 @@ start_node() {
   local log_file="$RUNTIME_LOG_DIR/ros_path_${name}.log"
   setsid bash -lc "
     export ROS_LOG_DIR='$LOG_DIR'
-    export ROS_LOCALHOST_ONLY=1
+    export ROS_LOCALHOST_ONLY=\${ROS_LOCALHOST_ONLY:-0}
+    export ROS_AUTOMATIC_DISCOVERY_RANGE=\${ROS_AUTOMATIC_DISCOVERY_RANGE:-SUBNET}
     export PYTHONPATH='$PROJECT_DIR'
     export PROJECT_DIR='$PROJECT_DIR'
     source '$ROS_WS/install/setup.bash'
@@ -38,7 +39,7 @@ sleep 2
 start_node \
   "bridge" \
   "$ROS_WS/install/rasprover_sensors/lib/rasprover_sensors/slam_sensor_bridge_node" \
-  "--ros-args --log-level info"
+  "--ros-args -p wheel_yaw_scale:=${WHEEL_YAW_SCALE:-1.96} --log-level info"
 sleep 1
 start_node \
   "mux" \
@@ -55,11 +56,14 @@ start_node \
   "$ROS_WS/install/rasprover_control/lib/rasprover_control/joystick_bridge_node" \
   "--ros-args --log-level info"
 sleep 1
-start_node \
-  "web" \
-  "$ROS_WS/install/rasprover_ui/lib/rasprover_ui/web_bridge_node" \
-  "--ros-args -p port:=5050 --log-level info"
-sleep 1
+
+if [ "${PATH_TEST_WITH_WEB:-0}" = "1" ]; then
+  start_node \
+    "web" \
+    "$ROS_WS/install/rasprover_ui/lib/rasprover_ui/web_bridge_node" \
+    "--ros-args -p port:=5050 --log-level info"
+  sleep 1
+fi
 start_node \
   "ekf" \
   "$ROS_WS/install/robot_localization/lib/robot_localization/ekf_node" \
@@ -68,7 +72,12 @@ sleep 1
 start_node \
   "path" \
   "$ROS_WS/install/rasprover_slam/lib/rasprover_slam/odometry_path_node" \
-  "--ros-args --log-level info"
+  "--ros-args -p odom_topic:=/odometry/filtered -p path_topic:=/odom_path -p min_translation:=0.005 -p min_rotation:=0.01 --log-level info"
+sleep 1
+start_node \
+  "wheel_path" \
+  "$ROS_WS/install/rasprover_slam/lib/rasprover_slam/odometry_path_node" \
+  "--ros-args -p odom_topic:=/wheel/odometry -p path_topic:=/wheel_odom_path -p min_translation:=0.005 -p min_rotation:=0.01 --log-level info"
 sleep 1
 
 echo "ros path test stack started"
@@ -79,6 +88,9 @@ echo "  $RUNTIME_LOG_DIR/ros_path_bridge.log"
 echo "  $RUNTIME_LOG_DIR/ros_path_mux.log"
 echo "  $RUNTIME_LOG_DIR/ros_path_joy.log"
 echo "  $RUNTIME_LOG_DIR/ros_path_joystick.log"
-echo "  $RUNTIME_LOG_DIR/ros_path_web.log"
+if [ "${PATH_TEST_WITH_WEB:-0}" = "1" ]; then
+  echo "  $RUNTIME_LOG_DIR/ros_path_web.log"
+fi
 echo "  $RUNTIME_LOG_DIR/ros_path_ekf.log"
 echo "  $RUNTIME_LOG_DIR/ros_path_path.log"
+echo "  $RUNTIME_LOG_DIR/ros_path_wheel_path.log"
