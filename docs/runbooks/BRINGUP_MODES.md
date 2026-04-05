@@ -68,6 +68,35 @@ bash ./stop_ros_slam_stack.sh
 
 This stack is structurally ready before LiDAR arrives, but mapping only becomes meaningful once `/scan` is available.
 
+### Path Test Without LiDAR
+
+Purpose:
+- drive the robot manually
+- fuse wheel odom and IMU with EKF
+- draw a live trajectory path without needing `/scan`
+
+Commands:
+```bash
+cd /home/ws/ugv_rpi
+bash ./start_ros_path_test_stack.sh
+bash ./status_ros_path_test_stack.sh
+bash ./stop_ros_path_test_stack.sh
+```
+
+Topics to inspect in RViz:
+- `/odometry/filtered`
+- `/odom_path`
+- `/tf`
+
+Suggested RViz config:
+- `/home/ws/ugv_rpi/ros2_ws/src/rasprover_slam/config/path_test.rviz`
+
+On the Mac:
+- source the same ROS 2 distro/environment
+- set the same ROS domain/network settings as the Pi
+- open RViz with fixed frame `odom`
+- add `Path`, `Odometry`, and `TF` displays if not using the provided config
+
 ## Blueprint Launch Files
 
 The package-facing launch entrypoints live in:

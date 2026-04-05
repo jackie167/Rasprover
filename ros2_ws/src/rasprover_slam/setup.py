@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
         ('share/' + package_name + '/config', glob('config/*.yaml')),
+        ('share/' + package_name + '/config', glob('config/*.rviz')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -20,4 +21,9 @@ setup(
     description='Blueprint-aligned SLAM package for launches and parameters.',
     license='MIT',
     tests_require=['pytest'],
+    entry_points={
+        'console_scripts': [
+            'odometry_path_node = rasprover_slam.odometry_path_node:main',
+        ],
+    },
 )

@@ -1,0 +1,107 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Tool Properties
+    Name: Tool Properties
+  - Class: rviz_common/Views
+    Name: Views
+  - Class: rviz_common/Time
+    Name: Time
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 160
+      Enabled: true
+      Line Style:
+        Line Width: 0.03
+        Value: Lines
+      Name: Grid
+      Plane: XY
+      Plane Cell Count: 50
+      Reference Frame: odom
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Marker Scale: 0.7
+      Name: TF
+      Show Names: true
+      Show Arrows: true
+      Show Axes: true
+      Value: true
+    - Class: rviz_default_plugins/Odometry
+      Enabled: true
+      Name: EKF Odom
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /odometry/filtered
+      Value: true
+    - Class: rviz_default_plugins/Odometry
+      Enabled: false
+      Name: Wheel Odom
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /wheel/odometry
+      Value: false
+    - Buffer Length: 1
+      Class: rviz_default_plugins/Path
+      Color: 255; 64; 64
+      Enabled: true
+      Head Diameter: 0.1
+      Head Length: 0.08
+      Length: 0.05
+      Line Style: Lines
+      Line Width: 0.06
+      Name: Odom Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.03
+      Shaft Diameter: 0.03
+      Shaft Length: 0.04
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /odom_path
+      Value: true
+  Enabled: true
+  Fixed Frame: odom
+  Global Options:
+    Background Color: 24; 24; 28
+    Fixed Frame: odom
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 10
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Name: Orbit
+      Pitch: 1.2
+      Yaw: 1.0
