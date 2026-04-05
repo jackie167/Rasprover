@@ -2,6 +2,7 @@
 
 set -e
 
+# Root operator helper to restart the primary ROS runtime.
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "[ros] restarting full stack"

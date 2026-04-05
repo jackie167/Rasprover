@@ -23,6 +23,11 @@ after the ROS-first cleanup.
 
 These stay at the root because operators expect to run them directly.
 
+Notes:
+
+- `restart_ros_full_stack.sh` is intentionally a small helper around stop/start.
+- runtime logs from these scripts do not stay at the root; they go to `runtime_logs/`.
+
 ### Core config and support
 
 - `config.yaml`
@@ -43,11 +48,22 @@ These are project-level configuration or Python support files.
 
 These are convenience wrappers that forward into `tools/`.
 
+Notes:
+
+- the real implementations live under `tools/`
+- the wrappers exist so common commands stay short and discoverable
+
 ### Project metadata
 
 - `README.md`
 - `LICENSE`
 - `.gitignore`
+
+One special case:
+
+- `.codex`
+  This file is not part of the robot runtime. It may appear because of the
+  local coding environment and can be ignored for system architecture purposes.
 
 ## What No Longer Belongs At The Root
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Root convenience wrapper for SLAM prep analysis."""
 
 import runpy
 from pathlib import Path
