@@ -1,6 +1,5 @@
 import json
 import os
-import sys
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
@@ -13,6 +12,8 @@ from rclpy.node import Node
 from rasprover_msgs.msg import CvControlIntent
 from rasprover_msgs.msg import CvStatus
 from rasprover_msgs.msg import CvTrackingTarget
+
+from .cv_ctrl import OpencvFuncs
 
 
 FALLBACK_ROOT = Path(__file__).resolve().parents[4]
@@ -37,15 +38,7 @@ def find_repo_root():
 
 
 REPO_ROOT = find_repo_root()
-VENV_SITE_PACKAGES = REPO_ROOT / 'ugv-env' / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages'
-
-if VENV_SITE_PACKAGES.exists() and str(VENV_SITE_PACKAGES) not in sys.path:
-    sys.path.insert(0, str(VENV_SITE_PACKAGES))
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from app_config import AppConfig  # noqa: E402
-from cv_ctrl import OpencvFuncs  # noqa: E402
 
 
 class _DummyReadline:

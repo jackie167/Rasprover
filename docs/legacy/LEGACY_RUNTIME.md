@@ -20,6 +20,11 @@ treated as the main runtime anymore:
 - `stop_legacy_app.sh`
 - `status_legacy_app.sh`
 
+Implementation note:
+
+- `cmd_mux.py`, `command_router.py`, and `command_service.py` now forward to
+  `/home/ws/ugv_rpi/legacy_runtime/`
+
 What is still legacy-only today:
 
 - old Flask/Socket.IO control path in `web_ui.py`
@@ -32,11 +37,14 @@ What remains intentionally non-ROS:
 - `base_driver.py`
 - `base_ctrl.py`
 
-These stay as the hardware/backend layer used by `robot_base_node`.
+These now forward to package-local implementations in `rasprover_base`, which
+stay as the hardware/backend layer used by `robot_base_node`.
 
 What remains transitional but still active in ROS:
 
 - `cv_ctrl.py`
 - `state_store.py`
 
-These are still consumed indirectly by `cv_node` and `rasprover_base`, so they are not ready to move into tutorial/archive storage yet.
+These now forward to package-local implementations still consumed indirectly by
+`cv_node` and `rasprover_base`, so they are not ready to move into
+tutorial/archive storage yet.

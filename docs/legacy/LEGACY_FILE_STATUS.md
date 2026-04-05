@@ -12,26 +12,30 @@ Some root-level legacy files are still used by the active ROS runtime, not just 
 
 ## Still Active In ROS Runtime
 
-These files are still live dependencies of the ROS stack and must stay in the repository runtime path for now.
+These components are still live dependencies of the ROS stack, but the root-level files are no longer the implementation owners in every case.
 
 - `base_ctrl.py`
-  Used by `base_driver.py`, which is still the low-level serial/protocol backend behind `rasprover_base`.
+  Root file is now a compatibility wrapper.
+  Runtime implementation now lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/base_ctrl.py`.
 
 - `base_driver.py`
-  Used by `rasprover_base` through `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/legacy_imports.py`.
+  Root file is now a compatibility wrapper.
+  Runtime implementation now lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/base_driver.py`.
 
 - `state_store.py`
-  Used by `rasprover_base` through the same package-local shim and also used by the fallback legacy app runtime.
+  Root file is now a compatibility wrapper.
+  Runtime implementation now lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_base/rasprover_base/state_store.py`.
 
 - `cv_ctrl.py`
-  Still used by `rasprover_cv/cv_node.py`.
-  The ROS CV node is a wrapper around `OpencvFuncs`, not yet a full rewrite.
+  Root file is now a compatibility wrapper.
+  Runtime implementation now lives in `/home/ws/ugv_rpi/ros2_ws/src/rasprover_cv/rasprover_cv/cv_ctrl.py`.
+  The ROS CV node is still a wrapper around `OpencvFuncs`, not yet a full rewrite.
 
-These files cannot be moved to `tutorial/` without breaking the current ROS stack.
+These implementations cannot be moved to `tutorial/` without breaking the current ROS stack.
 
 ## Still Active In Legacy Fallback Runtime Only
 
-These files are not part of the primary ROS runtime, but they are still needed if you want the old fallback app path to work.
+These are not part of the primary ROS runtime, but they are still needed if you want the old fallback app path to work.
 
 - `app.py`
 - `web_ui.py`
@@ -39,7 +43,11 @@ These files are not part of the primary ROS runtime, but they are still needed i
 - `command_service.py`
 - `command_router.py`
 
-These are candidates for future archival once the fallback runtime is intentionally retired.
+Current status:
+- `cmd_mux.py`, `command_service.py`, and `command_router.py` root files are now compatibility wrappers.
+- their fallback implementation code now lives under `/home/ws/ugv_rpi/legacy_runtime/`
+
+These are still candidates for future archival once the fallback runtime is intentionally retired.
 
 ## Operational Wrappers
 

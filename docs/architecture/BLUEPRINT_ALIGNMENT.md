@@ -55,6 +55,11 @@ This note maps the current repository layout to the target blueprint without cha
 - root shell entrypoints
   Kept in place intentionally for operator convenience and backwards compatibility.
 
+- root Python compatibility wrappers
+  Several legacy root modules now forward into package-local or `legacy_runtime`
+  implementations so that the project root is no longer the primary ownership
+  location for active runtime logic.
+
 ## Bringup Status
 
 - Existing compatibility launches remain:
@@ -93,6 +98,9 @@ These new launch files prefer blueprint-aligned package names such as `rasprover
 
 - `rasprover_localization`
   Kept for compatibility entrypoints and legacy config paths while runtime ownership moves into `rasprover_sensors` and `rasprover_slam`.
+
+- `legacy_runtime/`
+  Owns the remaining fallback app support modules such as the legacy in-process mux and command service logic.
 
 ## Deferred Structural Refactors
 
