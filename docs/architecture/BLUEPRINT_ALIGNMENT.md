@@ -60,6 +60,10 @@ This note maps the current repository layout to the target blueprint without cha
   implementations so that the project root is no longer the primary ownership
   location for active runtime logic.
 
+- `legacy_runtime/`
+  Now serves as the explicit containment area for the fallback Flask-first app
+  runtime and its remaining helper modules.
+
 ## Bringup Status
 
 - Existing compatibility launches remain:
@@ -113,3 +117,12 @@ These are intentionally not done yet because they would change package names, im
 ## Runtime Rule Kept Intact
 
 No runtime code path was changed by this organization pass. Existing commands still work through root wrappers and current package names.
+
+## Retirement Direction
+
+The remaining root wrappers are now primarily operator-compatibility shims.
+Retirement should proceed only after:
+
+- fallback app support is intentionally dropped
+- operator-facing scripts stop referring to root shim names
+- audit checks show no maintained source or tooling imports of those shims

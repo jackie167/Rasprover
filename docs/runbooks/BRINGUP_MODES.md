@@ -92,3 +92,15 @@ bash ./stop_legacy_app.sh
 ```
 
 Use this only when comparing behavior against the old app architecture or when debugging migration gaps.
+
+## Root Shim Policy
+
+Root-level Python files such as `app.py`, `web_ui.py`, `audio_ctrl.py`, and
+`base_driver.py` are no longer implementation owners.
+
+Use them only for compatibility when an older operator habit still depends on
+their names. For new work:
+
+- use ROS packages for runtime code
+- use `legacy_runtime/` for fallback app behavior
+- use `tools/` for diagnostics and calibration scripts
