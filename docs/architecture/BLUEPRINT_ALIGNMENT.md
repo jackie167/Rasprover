@@ -14,7 +14,7 @@ This note maps the current repository layout to the target blueprint without cha
 
 - `ros2_ws/src/rasprover_mux`
   Target: `rasprover_control`
-  Status: compatibility layer. The primary control node implementations now live in `rasprover_control`, while `rasprover_mux` remains as a legacy wrapper package.
+  Status: compatibility layer. The primary control node implementations and arbiters now live in `rasprover_control`, while `rasprover_mux` remains as a legacy wrapper package.
 
 - `ros2_ws/src/rasprover_web`
   Target: `rasprover_ui`
@@ -70,6 +70,20 @@ This note maps the current repository layout to the target blueprint without cha
   - `full_system.launch.py`
 
 These new launch files prefer blueprint-aligned package names such as `rasprover_control`, `rasprover_ui`, and `rasprover_slam`, while compatibility paths remain available through the legacy package names.
+
+## Ownership Status
+
+- `rasprover_control`
+  Owns the runtime implementations for mux, joystick bridge, local joy input, and arbiter helpers.
+
+- `rasprover_ui`
+  Owns the runtime implementation for the web bridge.
+
+- `rasprover_mux`
+  Kept only for compatibility entrypoints and import forwarding.
+
+- `rasprover_web`
+  Kept only for compatibility entrypoints and import forwarding.
 
 ## Deferred Structural Refactors
 

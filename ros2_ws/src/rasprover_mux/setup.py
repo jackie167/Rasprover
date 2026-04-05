@@ -14,7 +14,7 @@ setup(
     zip_safe=True,
     maintainer='jackie167',
     maintainer_email='thi.ledinh@gmail.com',
-    description='ROS 2 motion command mux node for Rasprover.',
+    description='Legacy compatibility wrapper for Rasprover control nodes.',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
