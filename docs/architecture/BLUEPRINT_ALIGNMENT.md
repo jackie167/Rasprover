@@ -55,6 +55,22 @@ This note maps the current repository layout to the target blueprint without cha
 - root shell entrypoints
   Kept in place intentionally for operator convenience and backwards compatibility.
 
+## Bringup Status
+
+- Existing compatibility launches remain:
+  - `motion_stack.launch.py`
+  - `localization_stack.launch.py`
+  - `slam_stack.launch.py`
+
+- New blueprint-facing bringup modes now exist in `rasprover_bringup/launch`:
+  - `base_only.launch.py`
+  - `teleop.launch.py`
+  - `web_control.launch.py`
+  - `slam.launch.py`
+  - `full_system.launch.py`
+
+These new launch files prefer blueprint-aligned package names such as `rasprover_control`, `rasprover_ui`, and `rasprover_slam`, while compatibility paths remain available through the legacy package names.
+
 ## Deferred Structural Refactors
 
 These are intentionally not done yet because they would change package names, imports, or operational entrypoints:
