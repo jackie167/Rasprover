@@ -14,11 +14,11 @@ This note maps the current repository layout to the target blueprint without cha
 
 - `ros2_ws/src/rasprover_mux`
   Target: `rasprover_control`
-  Status: transitional wrapper added. `rasprover_control` now exists and re-exports the current mux and joystick nodes.
+  Status: compatibility layer. The primary control node implementations now live in `rasprover_control`, while `rasprover_mux` remains as a legacy wrapper package.
 
 - `ros2_ws/src/rasprover_web`
   Target: `rasprover_ui`
-  Status: transitional wrapper added. `rasprover_ui` now exists and re-exports the current web bridge.
+  Status: compatibility layer. The primary web bridge implementation now lives in `rasprover_ui`, while `rasprover_web` remains as a legacy wrapper package.
 
 - `ros2_ws/src/rasprover_localization`
   Target: split between `rasprover_base`, `rasprover_slam`, and `rasprover_utils`

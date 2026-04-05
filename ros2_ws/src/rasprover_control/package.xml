@@ -11,7 +11,6 @@
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>rasprover_msgs</exec_depend>
-  <exec_depend>rasprover_mux</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
 
