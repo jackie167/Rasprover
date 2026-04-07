@@ -28,6 +28,9 @@ class SlamSensorBridgeNode(Node):
         self.declare_parameter('publish_tf', True)
         self.declare_parameter('wheel_separation_m', 0.52)
         self.declare_parameter('wheel_yaw_scale', 1.0)
+        self.declare_parameter('linear_odom_scale', 1.0)
+        self.declare_parameter('left_odom_scale', 1.0)
+        self.declare_parameter('right_odom_scale', 1.0)
         self.declare_parameter('gyro_scale', 1.0)
         self.declare_parameter('accel_scale', 1.0)
         self.declare_parameter('mag_scale', 1.0)
@@ -43,6 +46,9 @@ class SlamSensorBridgeNode(Node):
         self.publish_tf = self.get_parameter('publish_tf').get_parameter_value().bool_value
         self.wheel_separation = self.get_parameter('wheel_separation_m').get_parameter_value().double_value
         self.wheel_yaw_scale = self.get_parameter('wheel_yaw_scale').get_parameter_value().double_value
+        self.linear_odom_scale = self.get_parameter('linear_odom_scale').get_parameter_value().double_value
+        self.left_odom_scale = self.get_parameter('left_odom_scale').get_parameter_value().double_value
+        self.right_odom_scale = self.get_parameter('right_odom_scale').get_parameter_value().double_value
         self.gyro_scale = self.get_parameter('gyro_scale').get_parameter_value().double_value
         self.accel_scale = self.get_parameter('accel_scale').get_parameter_value().double_value
         self.mag_scale = self.get_parameter('mag_scale').get_parameter_value().double_value
@@ -67,7 +73,7 @@ class SlamSensorBridgeNode(Node):
         self.yaw = 0.0
 
         self.get_logger().info(
-            'slam_sensor_bridge_node raw=%s imu=%s mag=%s odom=%s wheel_separation=%.3f wheel_yaw_scale=%.3f'
+            'slam_sensor_bridge_node raw=%s imu=%s mag=%s odom=%s wheel_separation=%.3f wheel_yaw_scale=%.3f linear_odom_scale=%.3f left_odom_scale=%.3f right_odom_scale=%.3f'
             % (
                 feedback_raw_topic,
                 imu_topic,
@@ -75,6 +81,9 @@ class SlamSensorBridgeNode(Node):
                 wheel_odom_topic,
                 self.wheel_separation,
                 self.wheel_yaw_scale,
+                self.linear_odom_scale,
+                self.left_odom_scale,
+                self.right_odom_scale,
             )
         )
 
@@ -174,6 +183,8 @@ class SlamSensorBridgeNode(Node):
         if dt <= 0.0:
             return
 
+        d_left *= self.linear_odom_scale * self.left_odom_scale
+        d_right *= self.linear_odom_scale * self.right_odom_scale
         d_center = 0.5 * (d_left + d_right)
         d_theta = (d_right - d_left) / max(self.wheel_separation, self.motion_epsilon)
         d_theta *= self.wheel_yaw_scale

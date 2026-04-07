@@ -38,7 +38,7 @@ sleep 2
 start_node \
   "localization" \
   "$ROS_WS/install/rasprover_sensors/lib/rasprover_sensors/slam_sensor_bridge_node" \
-  "--ros-args -p wheel_yaw_scale:=${WHEEL_YAW_SCALE:-1.96} --log-level info"
+  "--ros-args -p wheel_yaw_scale:=${WHEEL_YAW_SCALE:-1.96} -p linear_odom_scale:=${LINEAR_ODOM_SCALE:-0.976} -p left_odom_scale:=${LEFT_ODOM_SCALE:-0.980} -p right_odom_scale:=${RIGHT_ODOM_SCALE:-1.000} --log-level info"
 sleep 1
 start_node \
   "mux" \

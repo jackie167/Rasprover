@@ -22,6 +22,7 @@ setup(
     entry_points={
         'console_scripts': [
             'slam_sensor_bridge_node = rasprover_sensors.slam_sensor_bridge_node:main',
+            'lidar_scan_node = rasprover_sensors.lidar_scan_node:main',
         ],
     },
 )
