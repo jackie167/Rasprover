@@ -33,7 +33,7 @@ class JoystickTeleopNode(Node):
         self.declare_parameter('pan_axis', 2)
         self.declare_parameter('tilt_axis', 3)
         self.declare_parameter('max_linear', 0.8)
-        self.declare_parameter('max_angular', 0.8)
+        self.declare_parameter('max_angular', 0.45)
         self.declare_parameter('max_pan', 90.0)
         self.declare_parameter('max_tilt', 60.0)
         self.declare_parameter('pan_step_deg', 3.0)
@@ -115,7 +115,7 @@ class JoystickTeleopNode(Node):
         self.last_motion = (0.0, 0.0)
         self.current_pan = 0.0
         self.current_tilt = 0.0
-        self.drive_scale = 1.0
+        self.drive_scale = self.min_drive_scale
         self.gimbal_scale = 1.0
         self.last_drive_slower_pressed = False
         self.last_drive_faster_pressed = False
@@ -125,8 +125,8 @@ class JoystickTeleopNode(Node):
         self.headlight_on = False
 
         self.get_logger().info(
-            'joystick_bridge_node listening on %s -> motion=%s gimbal=%s deadman_button=%d'
-            % (joy_topic, motion_topic, gimbal_topic, self.deadman_button)
+            'joystick_bridge_node listening on %s -> motion=%s gimbal=%s deadman_button=%d drive_scale=%.2f'
+            % (joy_topic, motion_topic, gimbal_topic, self.deadman_button, self.drive_scale)
         )
 
     @staticmethod

@@ -47,12 +47,12 @@ run_ros_cli() {
 start_node \
   "base" \
   "$ROS_WS/install/rasprover_base/lib/rasprover_base/robot_base_node" \
-  "--ros-args -p serial_port:=/dev/ttyAMA0 --log-level info"
+  "--ros-args -p serial_port:=/dev/ttyAMA0 -p left_drive_scale:=${LEFT_DRIVE_SCALE:-1.000} -p right_drive_scale:=${RIGHT_DRIVE_SCALE:-0.983} -p feedback_wheel_separation_m:=${FEEDBACK_WHEEL_SEPARATION_M:-0.52} -p feedback_wheel_yaw_scale:=${WHEEL_YAW_SCALE:-2.80} -p swap_feedback_wheels:=${SWAP_FEEDBACK_WHEELS:-false} -p straight_controller_enabled:=${STRAIGHT_CONTROLLER_ENABLED:-false} -p straight_controller_forward_only:=${STRAIGHT_CONTROLLER_FORWARD_ONLY:-true} -p straight_controller_linear_min:=${STRAIGHT_CONTROLLER_LINEAR_MIN:-0.10} -p straight_controller_angular_window:=${STRAIGHT_CONTROLLER_ANGULAR_WINDOW:-0.05} -p straight_controller_heading_gain:=${STRAIGHT_CONTROLLER_HEADING_GAIN:-0.90} -p straight_controller_integral_gain:=${STRAIGHT_CONTROLLER_INTEGRAL_GAIN:-0.12} -p straight_controller_wheel_balance_gain:=${STRAIGHT_CONTROLLER_WHEEL_BALANCE_GAIN:-0.80} -p straight_controller_gyro_gain:=${STRAIGHT_CONTROLLER_GYRO_GAIN:-0.20} -p straight_controller_integral_limit:=${STRAIGHT_CONTROLLER_INTEGRAL_LIMIT:-0.30} -p straight_controller_max_correction:=${STRAIGHT_CONTROLLER_MAX_CORRECTION:-0.12} --log-level info"
 sleep 2
 start_node \
   "bridge" \
   "$ROS_WS/install/rasprover_sensors/lib/rasprover_sensors/slam_sensor_bridge_node" \
-  "--ros-args -p wheel_yaw_scale:=${WHEEL_YAW_SCALE:-1.96} -p linear_odom_scale:=${LINEAR_ODOM_SCALE:-0.976} -p left_odom_scale:=${LEFT_ODOM_SCALE:-0.980} -p right_odom_scale:=${RIGHT_ODOM_SCALE:-1.000} -p publish_tf:=false --log-level info"
+  "--ros-args -p wheel_yaw_scale:=${WHEEL_YAW_SCALE:-2.80} -p linear_odom_scale:=${LINEAR_ODOM_SCALE:-0.976} -p left_odom_scale:=${LEFT_ODOM_SCALE:-0.990} -p right_odom_scale:=${RIGHT_ODOM_SCALE:-1.000} -p publish_tf:=true --log-level info"
 sleep 1
 start_node \
   "mux" \
@@ -72,17 +72,12 @@ sleep 1
 start_node \
   "lidar" \
   "$ROS_WS/install/rplidar_ros/lib/rplidar_ros/rplidar_node" \
-  "--ros-args -p channel_type:=serial -p serial_port:=/dev/ttyUSB0 -p serial_baudrate:=460800 -p frame_id:=laser -p inverted:=true -p angle_compensate:=true -p scan_mode:=Standard --log-level info"
+  "--ros-args -p channel_type:=serial -p serial_port:=/dev/ttyUSB0 -p serial_baudrate:=460800 -p frame_id:=laser -p inverted:=false -p angle_compensate:=true -p scan_mode:=Standard --log-level info"
 sleep 1
 start_node \
   "laser_tf" \
   "ros2" \
-  "run tf2_ros static_transform_publisher --x 0.04 --y 0.0 --z 0.0 --roll 0.0 --pitch 0.0 --yaw 0.0 --frame-id base_link --child-frame-id laser"
-sleep 1
-start_node \
-  "ekf" \
-  "$ROS_WS/install/robot_localization/lib/robot_localization/ekf_node" \
-  "--ros-args --params-file '$ROS_WS/src/rasprover_slam/config/ekf_wheel_imu.yaml' --log-level info"
+  "run tf2_ros static_transform_publisher --x 0.04 --y 0.0 --z 0.0 --roll 0.0 --pitch 0.0 --yaw 3.141592653589793 --frame-id base_link --child-frame-id laser"
 sleep 1
 start_node \
   "slam" \
@@ -105,7 +100,6 @@ echo "  $RUNTIME_LOG_DIR/ros_slam_joy.log"
 echo "  $RUNTIME_LOG_DIR/ros_slam_joystick.log"
 echo "  $RUNTIME_LOG_DIR/ros_slam_lidar.log"
 echo "  $RUNTIME_LOG_DIR/ros_slam_laser_tf.log"
-echo "  $RUNTIME_LOG_DIR/ros_slam_ekf.log"
 echo "  $RUNTIME_LOG_DIR/ros_slam_slam.log"
 for pid_file in "$PID_DIR"/slam_*.pid; do
   [ -f "$pid_file" ] || continue

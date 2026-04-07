@@ -35,6 +35,12 @@ class SlamSensorBridgeNode(Node):
         self.declare_parameter('accel_scale', 1.0)
         self.declare_parameter('mag_scale', 1.0)
         self.declare_parameter('motion_epsilon', 1e-6)
+        self.declare_parameter('imu_angular_velocity_covariance', 0.05)
+        self.declare_parameter('imu_linear_acceleration_covariance', 0.2)
+        self.declare_parameter('odom_pose_xy_covariance', 0.15)
+        self.declare_parameter('odom_pose_yaw_covariance', 0.08)
+        self.declare_parameter('odom_twist_linear_covariance', 0.10)
+        self.declare_parameter('odom_twist_yaw_covariance', 0.06)
 
         feedback_raw_topic = self.get_parameter('feedback_raw_topic').get_parameter_value().string_value
         imu_topic = self.get_parameter('imu_topic').get_parameter_value().string_value
@@ -53,6 +59,24 @@ class SlamSensorBridgeNode(Node):
         self.accel_scale = self.get_parameter('accel_scale').get_parameter_value().double_value
         self.mag_scale = self.get_parameter('mag_scale').get_parameter_value().double_value
         self.motion_epsilon = self.get_parameter('motion_epsilon').get_parameter_value().double_value
+        self.imu_angular_velocity_covariance = (
+            self.get_parameter('imu_angular_velocity_covariance').get_parameter_value().double_value
+        )
+        self.imu_linear_acceleration_covariance = (
+            self.get_parameter('imu_linear_acceleration_covariance').get_parameter_value().double_value
+        )
+        self.odom_pose_xy_covariance = (
+            self.get_parameter('odom_pose_xy_covariance').get_parameter_value().double_value
+        )
+        self.odom_pose_yaw_covariance = (
+            self.get_parameter('odom_pose_yaw_covariance').get_parameter_value().double_value
+        )
+        self.odom_twist_linear_covariance = (
+            self.get_parameter('odom_twist_linear_covariance').get_parameter_value().double_value
+        )
+        self.odom_twist_yaw_covariance = (
+            self.get_parameter('odom_twist_yaw_covariance').get_parameter_value().double_value
+        )
 
         self.feedback_sub = self.create_subscription(
             RawRobotFeedback,
@@ -139,9 +163,15 @@ class SlamSensorBridgeNode(Node):
         msg.angular_velocity.x = gx
         msg.angular_velocity.y = gy
         msg.angular_velocity.z = gz
+        msg.angular_velocity_covariance[0] = self.imu_angular_velocity_covariance
+        msg.angular_velocity_covariance[4] = self.imu_angular_velocity_covariance
+        msg.angular_velocity_covariance[8] = self.imu_angular_velocity_covariance
         msg.linear_acceleration.x = ax
         msg.linear_acceleration.y = ay
         msg.linear_acceleration.z = az
+        msg.linear_acceleration_covariance[0] = self.imu_linear_acceleration_covariance
+        msg.linear_acceleration_covariance[4] = self.imu_linear_acceleration_covariance
+        msg.linear_acceleration_covariance[8] = self.imu_linear_acceleration_covariance
         self.imu_pub.publish(msg)
 
     def publish_mag(self, raw_msg, packet):
@@ -201,8 +231,20 @@ class SlamSensorBridgeNode(Node):
         msg.pose.pose.position.y = self.y
         msg.pose.pose.position.z = 0.0
         msg.pose.pose.orientation = self._yaw_to_quaternion(self.yaw)
+        msg.pose.covariance[0] = self.odom_pose_xy_covariance
+        msg.pose.covariance[7] = self.odom_pose_xy_covariance
+        msg.pose.covariance[14] = 1e6
+        msg.pose.covariance[21] = 1e6
+        msg.pose.covariance[28] = 1e6
+        msg.pose.covariance[35] = self.odom_pose_yaw_covariance
         msg.twist.twist.linear.x = d_center / dt
         msg.twist.twist.angular.z = d_theta / dt
+        msg.twist.covariance[0] = self.odom_twist_linear_covariance
+        msg.twist.covariance[7] = 1e6
+        msg.twist.covariance[14] = 1e6
+        msg.twist.covariance[21] = 1e6
+        msg.twist.covariance[28] = 1e6
+        msg.twist.covariance[35] = self.odom_twist_yaw_covariance
         self.odom_pub.publish(msg)
 
         if self.tf_broadcaster is not None:

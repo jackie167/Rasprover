@@ -14,8 +14,10 @@ def clamp(value, lower, upper):
 class RobotHardwareAdapter:
     """Typed command adapter over the legacy base driver."""
 
-    def __init__(self, port=None, baud=115200):
+    def __init__(self, port=None, baud=115200, left_drive_scale=1.0, right_drive_scale=1.0):
         self.state_store = StateStore()
+        self.left_drive_scale = float(left_drive_scale)
+        self.right_drive_scale = float(right_drive_scale)
         if port:
             self.base_driver = BaseDriver(port, baud)
         else:
@@ -34,8 +36,8 @@ class RobotHardwareAdapter:
         return '/dev/serial0'
 
     def send_motion(self, linear, angular):
-        left = clamp(linear - angular, -1.0, 1.0)
-        right = clamp(linear + angular, -1.0, 1.0)
+        left = clamp((linear - angular) * self.left_drive_scale, -1.0, 1.0)
+        right = clamp((linear + angular) * self.right_drive_scale, -1.0, 1.0)
         self.base_driver.send_lr(left, right)
         return left, right
 

@@ -19,6 +19,7 @@ def ensure_ros_package_path():
 ensure_ros_package_path()
 
 from rasprover_base.base_driver import BaseDriver
+from rasprover_base.state_store import StateStore
 
 
 DEFAULT_BOOT_COMMANDS = (
@@ -29,7 +30,7 @@ DEFAULT_BOOT_COMMANDS = (
 
 
 def detect_port():
-    for path in ("/dev/serial0", "/dev/ttyAMA0"):
+    for path in ("/dev/ttyAMA0", "/dev/serial0"):
         if glob.glob(path):
             return path
     for pattern in ("/dev/ttyUSB*", "/dev/ttyACM*", "/dev/ttyAMA*", "/dev/serial*"):
@@ -44,12 +45,30 @@ def read_feedback_packet(driver, timeout=2.0):
     latest = None
     while time.time() < deadline:
         packet = driver.get_feedback()
-        if isinstance(packet, dict) and packet.get("T") == 1001:
+        if isinstance(packet, dict):
             latest = packet
-            if "odl" in packet and "odr" in packet:
+            packet_type = packet.get("T")
+            try:
+                packet_type = int(packet_type)
+            except (TypeError, ValueError):
+                packet_type = None
+            if packet_type == 1001 and "odl" in packet and "odr" in packet:
                 return latest
         time.sleep(0.01)
     return latest
+
+
+def wait_for_encoder_feedback(driver, timeout=6.0):
+    latest = read_feedback_packet(driver, timeout=timeout)
+    if isinstance(latest, dict):
+        packet_type = latest.get("T")
+        try:
+            packet_type = int(packet_type)
+        except (TypeError, ValueError):
+            packet_type = None
+        if packet_type == 1001 and "odl" in latest and "odr" in latest:
+            return latest
+    return None
 
 
 def packet_float(packet, key):
@@ -74,7 +93,7 @@ def compute_delta_yaw_deg(initial_packet, current_packet, wheel_separation_m, ya
 
 
 def run_rotation_auto(driver, target_deg, spin_speed, wheel_separation_m, yaw_scale, timeout_s):
-    initial_packet = read_feedback_packet(driver, timeout=3.0)
+    initial_packet = wait_for_encoder_feedback(driver, timeout=6.0)
     if initial_packet is None:
         raise RuntimeError("No T=1001 feedback with odl/odr before starting rotation.")
 
@@ -113,7 +132,7 @@ def run_rotation_auto(driver, target_deg, spin_speed, wheel_separation_m, yaw_sc
 
 
 def run_rotation_manual(driver, spin_speed, wheel_separation_m, yaw_scale, timeout_s):
-    initial_packet = read_feedback_packet(driver, timeout=3.0)
+    initial_packet = wait_for_encoder_feedback(driver, timeout=6.0)
     if initial_packet is None:
         raise RuntimeError("No T=1001 feedback with odl/odr before starting rotation.")
 
@@ -178,13 +197,13 @@ def main():
     parser.add_argument(
         "--spin-speed",
         type=float,
-        default=0.10,
+        default=0.08,
         help="Wheel speed magnitude used for in-place rotation. Use a low value for the first calibration pass.",
     )
     parser.add_argument("--wheel-separation-m", type=float, default=0.52, help="Effective wheel separation used in yaw estimation.")
     parser.add_argument("--yaw-scale", type=float, default=1.0, help="Current wheel yaw scale applied during estimation.")
     parser.add_argument("--timeout", type=float, default=25.0, help="Per-stage timeout in seconds.")
-    parser.add_argument("--targets", default="90,180,360", help="Comma-separated target angles in degrees.")
+    parser.add_argument("--targets", default="360,360,360", help="Comma-separated target angles in degrees.")
     parser.add_argument(
         "--auto-stop",
         action="store_true",
@@ -228,6 +247,7 @@ def main():
     print("[yaw_calib] stop ROS stacks first so the serial port is free.")
 
     driver = BaseDriver(port, args.baud)
+    driver.attach_state_store(StateStore())
     rows = []
 
     try:
@@ -236,6 +256,17 @@ def main():
                 print(f"[yaw_calib] send {cmd}")
                 driver.send_json(cmd)
                 time.sleep(0.15)
+
+        warmup_packet = wait_for_encoder_feedback(driver, timeout=6.0)
+        if warmup_packet is None:
+            latest_packet = driver.get_feedback()
+            print("[yaw_calib] no encoder feedback packet received during warmup.")
+            print(f"[yaw_calib] latest raw packet seen: {latest_packet!r}")
+            raise RuntimeError("No T=1001 feedback with odl/odr during warmup. Check serial port, baud, and that ROS stack is stopped.")
+        print(
+            "[yaw_calib] warmup feedback ok: T=%s odl=%s odr=%s"
+            % (warmup_packet.get("T"), warmup_packet.get("odl"), warmup_packet.get("odr"))
+        )
 
         for target_deg in targets:
             prompt_yes(target_deg)
@@ -263,7 +294,14 @@ def main():
                 "[yaw_calib] stage target=%.1f estimated_stop=%.2f duration=%.2fs"
                 % (target_deg, estimated_deg, result["duration_s"])
             )
-            actual_deg = target_deg if not args.auto_stop else prompt_actual_deg()
+            if args.auto_stop:
+                actual_deg = prompt_actual_deg()
+            else:
+                actual_raw = input(
+                    f"[yaw_calib] actual measured rotation in deg for target {target_deg:.1f} "
+                    "(Enter de dung gia tri target): "
+                ).strip()
+                actual_deg = float(actual_raw) if actual_raw else target_deg
             recommended_scale = None
             if actual_deg is not None and abs(estimated_deg) > 1e-6:
                 recommended_scale = args.yaw_scale * (actual_deg / estimated_deg)
