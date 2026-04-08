@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'odometry_path_node = rasprover_slam.odometry_path_node:main',
+            'simple_odom_filter_node = rasprover_slam.simple_odom_filter_node:main',
         ],
     },
 )

@@ -43,6 +43,8 @@ def generate_launch_description():
             name='slam_sensor_bridge_node',
             output='screen',
             parameters=[{
+                'wheel_separation_m': 0.52,
+                'wheel_yaw_scale': 2.80,
                 'left_odom_scale': 1.000,
                 'right_odom_scale': 1.000,
             }],

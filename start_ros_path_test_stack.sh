@@ -22,7 +22,7 @@ start_node() {
     export ROS_LOG_DIR='$LOG_DIR'
     export ROS_LOCALHOST_ONLY=\${ROS_LOCALHOST_ONLY:-0}
     export ROS_AUTOMATIC_DISCOVERY_RANGE=\${ROS_AUTOMATIC_DISCOVERY_RANGE:-SUBNET}
-    export PYTHONPATH='$PROJECT_DIR'
+    export PYTHONPATH='$ROS_WS/build/rasprover_slam:$PROJECT_DIR':\${PYTHONPATH}
     export PROJECT_DIR='$PROJECT_DIR'
     source '$ROS_WS/install/setup.bash'
     exec '$exec_path' $args
@@ -34,12 +34,12 @@ start_node() {
 start_node \
   "base" \
   "$ROS_WS/install/rasprover_base/lib/rasprover_base/robot_base_node" \
-  "--ros-args -p serial_port:=/dev/ttyAMA0 -p left_drive_scale:=${LEFT_DRIVE_SCALE:-1.000} -p right_drive_scale:=${RIGHT_DRIVE_SCALE:-0.983} -p feedback_wheel_separation_m:=${FEEDBACK_WHEEL_SEPARATION_M:-0.52} -p feedback_wheel_yaw_scale:=${WHEEL_YAW_SCALE:-2.80} -p swap_feedback_wheels:=${SWAP_FEEDBACK_WHEELS:-false} -p straight_controller_enabled:=${STRAIGHT_CONTROLLER_ENABLED:-false} -p straight_controller_forward_only:=${STRAIGHT_CONTROLLER_FORWARD_ONLY:-true} -p straight_controller_linear_min:=${STRAIGHT_CONTROLLER_LINEAR_MIN:-0.10} -p straight_controller_angular_window:=${STRAIGHT_CONTROLLER_ANGULAR_WINDOW:-0.05} -p straight_controller_heading_gain:=${STRAIGHT_CONTROLLER_HEADING_GAIN:-0.90} -p straight_controller_integral_gain:=${STRAIGHT_CONTROLLER_INTEGRAL_GAIN:-0.12} -p straight_controller_wheel_balance_gain:=${STRAIGHT_CONTROLLER_WHEEL_BALANCE_GAIN:-0.80} -p straight_controller_gyro_gain:=${STRAIGHT_CONTROLLER_GYRO_GAIN:-0.20} -p straight_controller_integral_limit:=${STRAIGHT_CONTROLLER_INTEGRAL_LIMIT:-0.30} -p straight_controller_max_correction:=${STRAIGHT_CONTROLLER_MAX_CORRECTION:-0.12} --log-level info"
+  "--ros-args -p serial_port:=/dev/ttyAMA0 -p left_drive_scale:=${LEFT_DRIVE_SCALE:-1.000} -p right_drive_scale:=${RIGHT_DRIVE_SCALE:-0.983} -p feedback_wheel_separation_m:=${WHEEL_SEPARATION_M:-${FEEDBACK_WHEEL_SEPARATION_M:-0.52}} -p feedback_wheel_yaw_scale:=${WHEEL_YAW_SCALE:-2.80} -p swap_feedback_wheels:=${SWAP_FEEDBACK_WHEELS:-false} -p straight_controller_enabled:=${STRAIGHT_CONTROLLER_ENABLED:-false} -p straight_controller_forward_only:=${STRAIGHT_CONTROLLER_FORWARD_ONLY:-true} -p straight_controller_linear_min:=${STRAIGHT_CONTROLLER_LINEAR_MIN:-0.10} -p straight_controller_angular_window:=${STRAIGHT_CONTROLLER_ANGULAR_WINDOW:-0.05} -p straight_controller_heading_gain:=${STRAIGHT_CONTROLLER_HEADING_GAIN:-0.90} -p straight_controller_integral_gain:=${STRAIGHT_CONTROLLER_INTEGRAL_GAIN:-0.12} -p straight_controller_wheel_balance_gain:=${STRAIGHT_CONTROLLER_WHEEL_BALANCE_GAIN:-0.80} -p straight_controller_gyro_gain:=${STRAIGHT_CONTROLLER_GYRO_GAIN:-0.20} -p straight_controller_integral_limit:=${STRAIGHT_CONTROLLER_INTEGRAL_LIMIT:-0.30} -p straight_controller_max_correction:=${STRAIGHT_CONTROLLER_MAX_CORRECTION:-0.12} --log-level info"
 sleep 2
 start_node \
   "bridge" \
   "$ROS_WS/install/rasprover_sensors/lib/rasprover_sensors/slam_sensor_bridge_node" \
-  "--ros-args -p wheel_yaw_scale:=${WHEEL_YAW_SCALE:-2.80} -p left_odom_scale:=${LEFT_ODOM_SCALE:-0.990} -p right_odom_scale:=${RIGHT_ODOM_SCALE:-1.000} --log-level info"
+  "--ros-args -p wheel_separation_m:=${WHEEL_SEPARATION_M:-${FEEDBACK_WHEEL_SEPARATION_M:-0.52}} -p wheel_yaw_scale:=${WHEEL_YAW_SCALE:-2.80} -p left_odom_scale:=${LEFT_ODOM_SCALE:-0.990} -p right_odom_scale:=${RIGHT_ODOM_SCALE:-1.000} -p publish_tf:=false --log-level info"
 sleep 1
 start_node \
   "mux" \
@@ -66,11 +66,19 @@ if [ "${PATH_TEST_WITH_WEB:-0}" = "1" ]; then
 fi
 
 if [ "${PATH_TEST_DISABLE_EKF:-0}" != "1" ]; then
-  start_node \
-    "ekf" \
-    "$ROS_WS/install/robot_localization/lib/robot_localization/ekf_node" \
-    "--ros-args --params-file '$ROS_WS/src/rasprover_slam/config/ekf_wheel_imu.yaml' --log-level info"
-  sleep 1
+  if [ "${PATH_TEST_FILTER_IMPL:-simple}" = "ekf" ]; then
+    start_node \
+      "ekf" \
+      "$ROS_WS/install/robot_localization/lib/robot_localization/ekf_node" \
+      "--ros-args --params-file '$ROS_WS/src/rasprover_slam/config/ekf_wheel_imu.yaml' --log-level info"
+    sleep 1
+  else
+    start_node \
+      "filter" \
+      "python3" \
+      "'$ROS_WS/src/rasprover_slam/rasprover_slam/simple_odom_filter_node.py' --ros-args --params-file '$ROS_WS/src/rasprover_slam/config/simple_odom_filter.yaml' --log-level info"
+    sleep 1
+  fi
   start_node \
     "path" \
     "$ROS_WS/install/rasprover_slam/lib/rasprover_slam/odometry_path_node" \
@@ -102,5 +110,5 @@ echo "  $RUNTIME_LOG_DIR/ros_path_wheel_path.log"
 if [ "${PATH_TEST_DISABLE_EKF:-0}" = "1" ]; then
   echo "mode: wheel odom only (ekf disabled)"
 else
-  echo "mode: wheel odom + ekf compare"
+  echo "mode: wheel odom + ${PATH_TEST_FILTER_IMPL:-simple} compare"
 fi

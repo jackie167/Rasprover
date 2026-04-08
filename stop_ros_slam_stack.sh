@@ -18,6 +18,7 @@ stop_pid_file() {
 
 stop_pid_file "$PID_DIR/slam_slam.pid"
 stop_pid_file "$PID_DIR/slam_ekf.pid"
+stop_pid_file "$PID_DIR/slam_filter.pid"
 stop_pid_file "$PID_DIR/slam_laser_tf.pid"
 stop_pid_file "$PID_DIR/slam_lidar.pid"
 stop_pid_file "$PID_DIR/slam_joystick.pid"
@@ -28,6 +29,7 @@ stop_pid_file "$PID_DIR/slam_base.pid"
 
 pkill -f "/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node" || true
 pkill -f "/robot_localization/lib/robot_localization/ekf_node" || true
+pkill -f "rasprover_slam/rasprover_slam/simple_odom_filter_node.py" || true
 pkill -f "/tf2_ros/static_transform_publisher.*base_link --child-frame-id laser" || true
 pkill -f "/rplidar_ros/lib/rplidar_ros/rplidar_node" || true
 pkill -f "/rasprover_control/lib/rasprover_control/joystick_bridge_node" || true
