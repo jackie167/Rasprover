@@ -10,6 +10,8 @@ templates/videos/video*
 .roslog/
 .ros_motion_pids/
 runtime_logs/
+maps/
+.worktrees/
 
 # Build and install artifacts
 build/
@@ -24,6 +26,7 @@ ros2_ws/log/
 tools/calibration/captures/
 
 # Large third-party source trees kept local for workspace builds
+ros2_ws/src/third_party/
 ros2_ws/src/ament/
 ros2_ws/src/bond_core/
 ros2_ws/src/diagnostics/
