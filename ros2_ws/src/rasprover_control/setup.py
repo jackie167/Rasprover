@@ -24,6 +24,7 @@ setup(
             'command_mux_node = rasprover_control.command_mux_node:main',
             'joystick_bridge_node = rasprover_control.joystick_bridge_node:main',
             'local_joy_node = rasprover_control.local_joy_node:main',
+            'nav_cmd_vel_bridge_node = rasprover_control.nav_cmd_vel_bridge_node:main',
         ],
     },
 )

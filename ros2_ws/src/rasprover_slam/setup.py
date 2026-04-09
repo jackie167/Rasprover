@@ -24,6 +24,10 @@ setup(
     entry_points={
         'console_scripts': [
             'odometry_path_node = rasprover_slam.odometry_path_node:main',
+            'navigate_to_pose_cli = rasprover_slam.navigate_to_pose_cli:main',
+            'set_initial_pose_cli = rasprover_slam.set_initial_pose_cli:main',
+            'frontier_explorer_node = rasprover_slam.frontier_explorer_node:main',
+            'simple_odom_filter_node = rasprover_slam.simple_odom_filter_node:main',
         ],
     },
 )

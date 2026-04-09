@@ -1,0 +1,14 @@
+frontier_explorer_node:
+  ros__parameters:
+    map_topic: /map
+    map_frame: map
+    base_frame: base_link
+    plan_period_sec: 2.0
+    min_frontier_cluster_size: 10
+    min_goal_distance_m: 0.7
+    max_goal_distance_m: 6.0
+    blacklist_radius_m: 0.9
+    goal_reached_radius_m: 0.6
+    goal_timeout_sec: 50.0
+    frontier_weight_distance: 1.0
+    frontier_weight_size: 0.05

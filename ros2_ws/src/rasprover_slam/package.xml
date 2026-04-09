@@ -9,10 +9,13 @@
 
   <buildtool_depend>ament_python</buildtool_depend>
 
+  <exec_depend>rclpy</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav2_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
   <exec_depend>rasprover_base</exec_depend>
   <exec_depend>rasprover_control</exec_depend>
   <exec_depend>rasprover_sensors</exec_depend>

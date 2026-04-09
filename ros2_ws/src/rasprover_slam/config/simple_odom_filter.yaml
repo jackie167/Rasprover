@@ -1,0 +1,29 @@
+simple_odom_filter_node:
+  ros__parameters:
+    input_odom_topic: /wheel/odometry
+    output_odom_topic: /odometry/filtered
+    imu_topic: /imu/data_raw
+    odom_frame: odom
+    base_frame: base_link
+    publish_tf: true
+    use_imu: false
+    linear_alpha: 0.30
+    angular_alpha: 0.35
+    imu_angular_alpha: 0.25
+    imu_angular_weight: 0.0
+    max_linear_velocity: 1.0
+    max_angular_velocity: 3.0
+    max_linear_accel: 1.5
+    max_angular_accel: 6.0
+    pose_correction_gain_xy: 0.08
+    pose_correction_gain_yaw: 0.10
+    max_pose_correction_step: 0.02
+    max_yaw_correction_step: 0.08
+    rotation_suppress_angular_threshold: 0.5
+    rotation_suppress_linear_threshold: 0.08
+    rotation_translation_scale: 0.10
+    rotation_pose_correction_scale: 0.05
+    pose_xy_covariance: 0.20
+    pose_yaw_covariance: 0.12
+    twist_linear_covariance: 0.08
+    twist_yaw_covariance: 0.10
