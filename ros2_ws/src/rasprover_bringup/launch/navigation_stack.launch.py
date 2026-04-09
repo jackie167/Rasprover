@@ -135,9 +135,10 @@ def generate_launch_description():
             parameters=[{
                 'input_topic': '/cmd_vel_nav',
                 'output_topic': '/cv/control_intent',
-                'max_linear': 0.08,
+                'max_linear': 0.10,
                 'max_angular': 0.08,
-                'deadband_angular': 0.03,
+                'deadband_angular': 0.05,
+                'min_linear_floor': 0.07,
             }],
         ),
     ])

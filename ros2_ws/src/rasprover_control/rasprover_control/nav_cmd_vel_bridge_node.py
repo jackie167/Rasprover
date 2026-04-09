@@ -27,6 +27,7 @@ class NavCmdVelBridgeNode(Node):
         self.declare_parameter('publish_zero_on_idle', True)
         self.declare_parameter('deadband_linear', 0.001)
         self.declare_parameter('deadband_angular', 0.001)
+        self.declare_parameter('min_linear_floor', 0.0)
 
         self.input_topic = self.get_parameter('input_topic').value
         self.output_topic = self.get_parameter('output_topic').value
@@ -38,6 +39,7 @@ class NavCmdVelBridgeNode(Node):
         self.publish_zero_on_idle = bool(self.get_parameter('publish_zero_on_idle').value)
         self.deadband_linear = float(self.get_parameter('deadband_linear').value)
         self.deadband_angular = float(self.get_parameter('deadband_angular').value)
+        self.min_linear_floor = float(self.get_parameter('min_linear_floor').value)
 
         self.cmd_sub = self.create_subscription(Twist, self.input_topic, self.handle_cmd_vel, 20)
         self.intent_pub = self.create_publisher(CvControlIntent, self.output_topic, 20)
@@ -61,6 +63,8 @@ class NavCmdVelBridgeNode(Node):
             linear = 0.0
         if math.fabs(angular) < self.deadband_angular:
             angular = 0.0
+        if linear != 0.0 and math.fabs(linear) < self.min_linear_floor:
+            linear = math.copysign(self.min_linear_floor, linear)
 
         if not self.publish_zero_on_idle and linear == 0.0 and angular == 0.0:
             return
