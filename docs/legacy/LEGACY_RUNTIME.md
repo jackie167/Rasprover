@@ -1,12 +1,12 @@
 # Legacy Runtime Notes
 
-The primary runtime is now the ROS full stack:
+The primary runtime is now the ROS motion stack, with optional CV:
 
-- `start_ros_full_stack.sh`
+- `start_ros_motion_stack.sh`
 - `web_bridge_node`
 - `command_mux_node`
 - `robot_base_node`
-- `cv_node`
+- optional `cv_node`
 
 The old fallback Flask-first runtime is retired.
 

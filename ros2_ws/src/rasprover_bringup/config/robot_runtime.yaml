@@ -1,0 +1,46 @@
+profile_name: rasprover_main
+serial_port_default: /dev/ttyAMA0
+lidar_port_default: /dev/ttyUSB0
+runtime_sources:
+  app_config: /home/ws/ugv_rpi/config.yaml
+  calibration_capture_dir: /home/ws/ugv_rpi/tools/calibration/captures
+
+robot_base_node:
+  left_drive_scale: 1.000
+  right_drive_scale: 0.983
+  feedback_wheel_separation_m: 0.52
+  feedback_wheel_yaw_scale: 2.80
+  swap_feedback_wheels: false
+  straight_controller_enabled: false
+  straight_controller_forward_only: true
+  straight_controller_linear_min: 0.10
+  straight_controller_angular_window: 0.05
+  straight_controller_heading_gain: 0.90
+  straight_controller_integral_gain: 0.12
+  straight_controller_wheel_balance_gain: 0.80
+  straight_controller_gyro_gain: 0.20
+  straight_controller_integral_limit: 0.30
+  straight_controller_max_correction: 0.12
+
+slam_sensor_bridge_node:
+  motion:
+    wheel_separation_m: 0.52
+    wheel_yaw_scale: 2.80
+    linear_odom_scale: 1.000
+    left_odom_scale: 1.000
+    right_odom_scale: 1.000
+  slam:
+    publish_tf: false
+    wheel_separation_m: 0.52
+    wheel_yaw_scale: 2.80
+    linear_odom_scale: 0.976
+    left_odom_scale: 0.990
+    right_odom_scale: 1.000
+
+nav_cmd_vel_bridge_node:
+  input_topic: /cmd_vel_nav
+  output_topic: /cv/control_intent
+  max_linear: 0.10
+  max_angular: 0.08
+  deadband_angular: 0.05
+  min_linear_floor: 0.07

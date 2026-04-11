@@ -1,6 +1,7 @@
 import json
 import mimetypes
 import os
+import sys
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
@@ -26,26 +27,11 @@ from rasprover_msgs.msg import MotionCommand
 from rasprover_msgs.msg import RobotFeedback
 from rasprover_msgs.msg import ServoSetupCommand
 
+FALLBACK_ROOT = Path(__file__).resolve().parents[4]
+if str(FALLBACK_ROOT) not in sys.path:
+    sys.path.insert(0, str(FALLBACK_ROOT))
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-
-
-def find_repo_root():
-    env_root = os.environ.get('PROJECT_DIR')
-    if env_root:
-        candidate = Path(env_root).resolve()
-        if (candidate / 'config.yaml').exists():
-            return candidate
-
-    for candidate in Path(__file__).resolve().parents:
-        if (candidate / 'config.yaml').exists() and (candidate / 'templates').exists():
-            return candidate
-
-    cwd_candidate = Path.cwd().resolve()
-    if (cwd_candidate / 'config.yaml').exists():
-        return cwd_candidate
-
-    return REPO_ROOT
+from repo_paths import find_repo_root
 
 
 def build_motion_command(node, payload):
@@ -110,7 +96,11 @@ class WebBridgeNode(Node):
         self.port = self.get_parameter('port').get_parameter_value().integer_value
         self.cv_host = '127.0.0.1'
         self.cv_port = 5051
-        self.repo_root = find_repo_root()
+        self.repo_root = find_repo_root(
+            start_path=__file__,
+            extra_required=("templates",),
+            fallback_root=FALLBACK_ROOT,
+        )
         self.config_path = self.repo_root / 'config.yaml'
         self.photo_dir = self.repo_root / 'templates' / 'pictures'
         self.video_dir = self.repo_root / 'templates' / 'videos'

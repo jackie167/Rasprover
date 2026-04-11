@@ -43,6 +43,7 @@ class SimpleOdomFilterNode(Node):
         self.odom_frame = self.declare_parameter("odom_frame", "odom").value
         self.base_frame = self.declare_parameter("base_frame", "base_link").value
         self.publish_tf = bool(self.declare_parameter("publish_tf", True).value)
+        self.tf_use_current_time = bool(self.declare_parameter("tf_use_current_time", True).value)
         self.use_imu = bool(self.declare_parameter("use_imu", False).value)
         self.linear_alpha = float(self.declare_parameter("linear_alpha", 0.30).value)
         self.angular_alpha = float(self.declare_parameter("angular_alpha", 0.35).value)
@@ -207,7 +208,7 @@ class SimpleOdomFilterNode(Node):
 
         if self.tf_broadcaster is not None:
             transform = TransformStamped()
-            transform.header.stamp = stamp
+            transform.header.stamp = self.get_clock().now().to_msg() if self.tf_use_current_time else stamp
             transform.header.frame_id = self.odom_frame
             transform.child_frame_id = self.base_frame
             transform.transform.translation.x = self.x

@@ -1,7 +1,9 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+
+from rasprover_bringup.launch_builders import ekf_node
+from rasprover_bringup.launch_builders import slam_toolbox_node
 
 
 def generate_launch_description():
@@ -22,23 +24,6 @@ def generate_launch_description():
             'scan_topic',
             default_value='/scan',
         ),
-        Node(
-            package='robot_localization',
-            executable='ekf_node',
-            name='ekf_filter_node',
-            output='screen',
-            parameters=[ekf_config],
-        ),
-        Node(
-            package='slam_toolbox',
-            executable='async_slam_toolbox_node',
-            name='slam_toolbox',
-            output='screen',
-            parameters=[
-                slam_params,
-                {
-                    'scan_topic': scan_topic,
-                },
-            ],
-        ),
+        ekf_node(ekf_config),
+        slam_toolbox_node(slam_params, scan_topic),
     ])

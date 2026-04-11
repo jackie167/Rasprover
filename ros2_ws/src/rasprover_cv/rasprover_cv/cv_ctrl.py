@@ -1,49 +1,41 @@
 import cv2
+import datetime
+import json
+import math
+import os
+import subprocess
+import sys
+import textwrap
+import threading
+import time
+from collections import deque
+from pathlib import Path
+
+import imageio
 import imutils
 import mediapipe as mp
-import imageio
-import threading
-import datetime, time
 import numpy as np
-import math
-import os, json, subprocess
-import sys
-from pathlib import Path
-from collections import deque
-import textwrap
 
 # libraries for csi camera
 from picamera2 import Picamera2
-from picamera2.encoders import H264Encoder, Encoder
+from picamera2.encoders import H264Encoder
 from picamera2.outputs import FfmpegOutput
 
-def find_repo_root():
-    env_root = os.environ.get('PROJECT_DIR')
-    if env_root:
-        candidate = Path(env_root).resolve()
-        if (candidate / 'config.yaml').exists():
-            return candidate
-
-    for candidate in Path(__file__).resolve().parents:
-        if (candidate / 'config.yaml').exists():
-            return candidate
-
-    cwd_candidate = Path.cwd().resolve()
-    if (cwd_candidate / 'config.yaml').exists():
-        return cwd_candidate
-
-    return Path(__file__).resolve().parents[4]
-
-
-REPO_ROOT = find_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+FALLBACK_ROOT = Path(__file__).resolve().parents[4]
+if str(FALLBACK_ROOT) not in sys.path:
+    sys.path.insert(0, str(FALLBACK_ROOT))
 
 from app_config import AppConfig
+from repo_paths import ensure_repo_on_path
+from repo_paths import find_repo_root
+
+REPO_ROOT = ensure_repo_on_path(
+    find_repo_root(start_path=__file__, fallback_root=FALLBACK_ROOT)
+)
 
 # config file.
 thisPath = str(REPO_ROOT)
-app_config = AppConfig(str(REPO_ROOT / 'config.yaml'))
+app_config = AppConfig(str(REPO_ROOT / "config.yaml"))
 
 
 class OpencvFuncs():
@@ -55,7 +47,7 @@ class OpencvFuncs():
         self.cv_event.clear()
         self.cv_mode = self.config.code('cv_none')
         self.detection_reaction_mode = self.config.code('re_none')
-        
+
         self.this_path = project_path
         self.photo_path = self.this_path + '/templates/pictures/'
         self.video_path = self.this_path + '/templates/videos/'
@@ -144,10 +136,10 @@ class OpencvFuncs():
 
         # mediapipe detect pose
         self.mp_pose = mp.solutions.pose
-        self.pose = self.mp_pose.Pose(static_image_mode=False, 
-                                    model_complexity=1, 
-                                    smooth_landmarks=True, 
-                                    min_detection_confidence=0.5, 
+        self.pose = self.mp_pose.Pose(static_image_mode=False,
+                                    model_complexity=1,
+                                    smooth_landmarks=True,
+                                    min_detection_confidence=0.5,
                                     min_tracking_confidence=0.5)
 
         # base data
@@ -201,8 +193,8 @@ class OpencvFuncs():
         except Exception as e:
             print(f"[cv_ctrl.frame_process] error: {e}")
             input_frame = 255 * np.ones((480, 640, 3), dtype=np.uint8)
-            cv2.putText(input_frame, f"camera read failed... \n{e}", 
-                        (round(0.05*640), round(0.1*640 + 5 * 13)), 
+            cv2.putText(input_frame, f"camera read failed... \n{e}",
+                        (round(0.05*640), round(0.1*640 + 5 * 13)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.369, (0, 0, 0), 1)
             ret, buffer = cv2.imencode('.jpg', input_frame, [int(cv2.IMWRITE_JPEG_QUALITY), self.video_quality])
             input_frame = buffer.tobytes()
@@ -223,21 +215,21 @@ class OpencvFuncs():
             if time.time() - self.info_update_time > self.info_show_time:
                 self.show_info_flag = False
             self.overlay = input_frame.copy()
-            cv2.rectangle(self.overlay,  (round((self.info_scale-0.005)*640), round((0.33)*480)), 
-                                    (round(0.98*640), round((0.78)*480)), 
+            cv2.rectangle(self.overlay,  (round((self.info_scale-0.005)*640), round((0.33)*480)),
+                                    (round(0.98*640), round((0.78)*480)),
                                     self.info_bg_color, -1)
             cv2.addWeighted(self.overlay, 0.5, input_frame, 0.5, 0, input_frame)
 
             # info_deque.appendleft(time.time())
             for i in range(0, len(self.info_deque)):
-                cv2.putText(input_frame, str(self.info_deque[i]['text']), 
-                            (round(self.info_scale*640), round(self.info_scale*640 - i * 20)), 
+                cv2.putText(input_frame, str(self.info_deque[i]['text']),
+                            (round(self.info_scale*640), round(self.info_scale*640 - i * 20)),
                             cv2.FONT_HERSHEY_SIMPLEX, self.info_deque[i]['size'], self.info_deque[i]['color'], 1)
 
         if self.show_base_info_flag:
             for i in range(0, len(self.recv_deque)):
-                cv2.putText(input_frame, str(self.recv_deque[i]), 
-                        (round(0.05*640), round(0.1*640 + i * 13)), 
+                cv2.putText(input_frame, str(self.recv_deque[i]),
+                        (round(0.05*640), round(0.1*640 + i * 13)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.369, (255, 255, 255), 1)
 
         # render osd
@@ -314,7 +306,7 @@ class OpencvFuncs():
     def osd_render(self, osd_frame):
         if not self.add_osd:
             return osd_frame
-        
+
         # add your osd info here
         # cv2.putText(overlay_buffer, 'OSD_TEST', (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
@@ -333,7 +325,7 @@ class OpencvFuncs():
         for sensor_line in self.base_ctrl.rl.sensor_data:
             # sensor_line = sensor_line[:-2]
             cv2.putText(osd_frame, sensor_line,
-                        (100, 50 + sensor_index * 20), 
+                        (100, 50 + sensor_index * 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
             sensor_index = sensor_index + 1
 
@@ -410,12 +402,12 @@ class OpencvFuncs():
             if(timestamp - self.last_frame_capture_time).seconds >= 1:
                 if self.detection_reaction_mode == self.config.code('re_none'):
                     pass
-                elif self.detection_reaction_mode == self.config.code('re_capt'): 
+                elif self.detection_reaction_mode == self.config.code('re_capt'):
                     self.picture_capture()
                 elif self.detection_reaction_mode == self.config.code('re_reco'):
                     self.video_record(True)
                 self.last_frame_capture_time = datetime.datetime.now()
-            
+
         if (timestamp - self.last_movtion_captured).seconds >= 1.5:
             if self.detection_reaction_mode == self.config.code('re_reco'):
                 if(timestamp - self.last_frame_capture_time).seconds >= 5:
@@ -505,9 +497,9 @@ class OpencvFuncs():
     def cv_detect_faces(self, img):
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = self.faceCascade.detectMultiScale(
-                gray_img,     
+                gray_img,
                 scaleFactor=1.2,
-                minNeighbors=5,     
+                minNeighbors=5,
                 minSize=(20, 20)
             )
         overlay_buffer = np.zeros_like(img)
@@ -553,13 +545,13 @@ class OpencvFuncs():
                 if(datetime.datetime.now() - self.last_frame_capture_time).seconds >= 5:
                     self.video_record(False)
 
-        cv2.putText(overlay_buffer, 'NUMBER: {}'.format(len(faces)), (center_x+50, center_y+40), 
+        cv2.putText(overlay_buffer, 'NUMBER: {}'.format(len(faces)), (center_x+50, center_y+40),
                                                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(overlay_buffer, 'ITERATE: {}'.format(self.track_faces_iterate), (center_x+50, center_y+60), 
+        cv2.putText(overlay_buffer, 'ITERATE: {}'.format(self.track_faces_iterate), (center_x+50, center_y+60),
                                                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(overlay_buffer, ' SPD_R: {}'.format(self.track_spd_rate), (center_x+50, center_y+80), 
+        cv2.putText(overlay_buffer, ' SPD_R: {}'.format(self.track_spd_rate), (center_x+50, center_y+80),
                                                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(overlay_buffer, ' ACC_R: {}'.format(self.track_acc_rate), (center_x+50, center_y+100), 
+        cv2.putText(overlay_buffer, ' ACC_R: {}'.format(self.track_acc_rate), (center_x+50, center_y+100),
                                                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         self.overlay = overlay_buffer
 
@@ -635,7 +627,7 @@ class OpencvFuncs():
         cv2.putText(overlay_buffer, 'ITERATE: {}'.format(self.track_color_iterate), (center_x+50, center_y+140), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         cv2.putText(overlay_buffer, ' SPD_R: {}'.format(self.track_spd_rate), (center_x+50, center_y+160), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         cv2.putText(overlay_buffer, ' ACC_R: {}'.format(self.track_acc_rate), (center_x+50, center_y+180), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        
+
         cv2.circle(overlay_buffer, (center_x, center_y), self.sampling_rad, (64, 255, 64), 1)
 
         # only proceed if at least one contour was found
@@ -659,7 +651,7 @@ class OpencvFuncs():
                     else:
                         head_light_pwm = 0
                         self.set_cv_lights(self.base_ctrl.base_light_status, head_light_pwm)
-                    cv2.putText(overlay_buffer, 'DIF: {}'.format(distance), (center_x+50, center_y+20), 
+                    cv2.putText(overlay_buffer, 'DIF: {}'.format(distance), (center_x+50, center_y+20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
                 # draw the circle and centroid on the frame,
@@ -764,7 +756,7 @@ class OpencvFuncs():
 
                 # LED Ctrl
                 if middle_finger_gs > 20 and pinky_finger_gs > 90:
-                    cv2.putText(overlay_buffer, ' GS: LED Ctrl', (center_x+50, center_y+100), 
+                    cv2.putText(overlay_buffer, ' GS: LED Ctrl', (center_x+50, center_y+100),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 128, 128), 1)
                     tips_distance = self.calculate_distance(handLms.landmark[self.mpHands.HandLandmark.INDEX_FINGER_TIP],
                         handLms.landmark[self.mpHands.HandLandmark.THUMB_TIP])
@@ -783,7 +775,7 @@ class OpencvFuncs():
 
                 # Take Pic
                 elif middle_finger_gs < 10 and pinky_finger_gs > 90 and index_finger_gs < 10:
-                    cv2.putText(overlay_buffer, ' GS: Take Pic', (center_x+50, center_y+100), 
+                    cv2.putText(overlay_buffer, ' GS: Take Pic', (center_x+50, center_y+100),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 128, 128), 1)
                     if time.time() - self.gs_pic_last_time > self.gs_pic_interval:
                         self.set_cv_lights(255, 255)
@@ -794,17 +786,17 @@ class OpencvFuncs():
 
                 # Not Found
                 else:
-                    cv2.putText(overlay_buffer, ' GS: Not Defined', (center_x+50, center_y+100), 
+                    cv2.putText(overlay_buffer, ' GS: Not Defined', (center_x+50, center_y+100),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 128, 128), 1)
                     self.set_cv_lights(0, 0)
         else:
             self.clear_tracking_target('hand', width, height)
 
-        cv2.putText(overlay_buffer, 'ITERATE: {}'.format(self.track_faces_iterate), (center_x+50, center_y+140), 
+        cv2.putText(overlay_buffer, 'ITERATE: {}'.format(self.track_faces_iterate), (center_x+50, center_y+140),
             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(overlay_buffer, ' SPD_R: {}'.format(self.track_spd_rate), (center_x+50, center_y+160), 
+        cv2.putText(overlay_buffer, ' SPD_R: {}'.format(self.track_spd_rate), (center_x+50, center_y+160),
             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(overlay_buffer, ' ACC_R: {}'.format(self.track_acc_rate), (center_x+50, center_y+180), 
+        cv2.putText(overlay_buffer, ' ACC_R: {}'.format(self.track_acc_rate), (center_x+50, center_y+180),
             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
         self.overlay = overlay_buffer

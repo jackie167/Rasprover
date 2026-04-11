@@ -4,7 +4,7 @@ Current target runtime:
 
 `web_bridge_node -> command_mux_node -> robot_base_node -> base_driver/base_ctrl`
 
-Current full-stack runtime on the Pi:
+Current primary runtime on the Pi:
 
 `web_bridge_node -> command_mux_node -> robot_base_node`
 
@@ -79,12 +79,9 @@ Current replacement scope:
 
 Operational scripts:
 
-- `./start_ros_motion_stack.sh`
-- `./stop_ros_motion_stack.sh`
-- `./status_ros_motion_stack.sh`
-- `./start_ros_full_stack.sh`
-- `./stop_ros_full_stack.sh`
-- `./status_ros_full_stack.sh`
+- `./ops/start_ros_motion_stack.sh`
+- `./ops/stop_ros_motion_stack.sh`
+- `./ops/status_ros_motion_stack.sh`
 - legacy fallback:
   - `./start_legacy_app.sh`
   - `./stop_legacy_app.sh`
@@ -92,4 +89,4 @@ Operational scripts:
 
 Default autorun target:
 
-- `./start_ros_full_stack.sh`
+- `WITH_CV=true ./ops/start_ros_motion_stack.sh`

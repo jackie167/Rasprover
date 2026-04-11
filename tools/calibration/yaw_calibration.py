@@ -20,6 +20,9 @@ ensure_ros_package_path()
 
 from rasprover_base.base_driver import BaseDriver
 from rasprover_base.state_store import StateStore
+from recommendation_io import build_update
+from recommendation_io import load_runtime_config
+from recommendation_io import write_recommendation
 
 
 DEFAULT_BOOT_COMMANDS = (
@@ -249,6 +252,7 @@ def main():
     driver = BaseDriver(port, args.baud)
     driver.attach_state_store(StateStore())
     rows = []
+    runtime_config = load_runtime_config()
 
     try:
         if not args.skip_init:
@@ -349,6 +353,51 @@ def main():
         if overall_scale != "":
             print("[yaw_calib] export and retry:")
             print("export WHEEL_YAW_SCALE=%.4f" % overall_scale)
+
+        updates = []
+        if overall_scale != "":
+            overall_scale = round(float(overall_scale), 6)
+            updates.extend(
+                [
+                    build_update(
+                        runtime_config,
+                        "robot_base_node.feedback_wheel_yaw_scale",
+                        overall_scale,
+                        "Apply overall wheel yaw scale from yaw_calibration.",
+                    ),
+                    build_update(
+                        runtime_config,
+                        "slam_sensor_bridge_node.motion.wheel_yaw_scale",
+                        overall_scale,
+                        "Keep motion sensor bridge yaw scale aligned with base yaw scale.",
+                    ),
+                    build_update(
+                        runtime_config,
+                        "slam_sensor_bridge_node.slam.wheel_yaw_scale",
+                        overall_scale,
+                        "Keep SLAM sensor bridge yaw scale aligned with base yaw scale.",
+                    ),
+                ]
+            )
+
+        recommendation_payload = {
+            "status": "pending",
+            "recommendation_type": "yaw_calibration",
+            "source_csv": str(Path(output_path).resolve()),
+            "summary": {
+                "overall_wheel_yaw_scale": overall_scale,
+                "target_profiles": [
+                    "robot_base_node",
+                    "slam_sensor_bridge_node.motion",
+                    "slam_sensor_bridge_node.slam",
+                ],
+                "stage_count": len(rows),
+            },
+            "updates": updates,
+        }
+        recommendation_path, latest_path = write_recommendation(recommendation_payload, output_path)
+        print(f"[yaw_calib] recommendation saved: {recommendation_path}")
+        print(f"[yaw_calib] latest recommendation updated: {latest_path}")
     finally:
         try:
             driver.stop()

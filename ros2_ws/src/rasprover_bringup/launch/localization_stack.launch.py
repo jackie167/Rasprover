@@ -2,7 +2,9 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+
+from rasprover_bringup.launch_builders import ekf_node
+from rasprover_bringup.launch_builders import sensor_bridge_node
 
 
 def generate_launch_description():
@@ -18,18 +20,6 @@ def generate_launch_description():
             'with_bridge',
             default_value='true',
         ),
-        Node(
-            package='rasprover_sensors',
-            executable='slam_sensor_bridge_node',
-            name='slam_sensor_bridge_node',
-            output='screen',
-            condition=IfCondition(with_bridge),
-        ),
-        Node(
-            package='robot_localization',
-            executable='ekf_node',
-            name='ekf_filter_node',
-            output='screen',
-            parameters=[ekf_config],
-        ),
+        sensor_bridge_node('slam', IfCondition(with_bridge)),
+        ekf_node(ekf_config),
     ])

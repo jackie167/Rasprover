@@ -1,7 +1,12 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+
+from rasprover_bringup.launch_builders import base_node
+from rasprover_bringup.launch_builders import command_mux_node
+from rasprover_bringup.launch_builders import sensor_bridge_node
+from rasprover_bringup.launch_builders import web_bridge_node
+from rasprover_bringup.runtime_config import default_serial_port
 
 
 def generate_launch_description():
@@ -9,32 +14,10 @@ def generate_launch_description():
     web_port = LaunchConfiguration('web_port')
 
     return LaunchDescription([
-        DeclareLaunchArgument('serial_port', default_value='/dev/ttyAMA0'),
+        DeclareLaunchArgument('serial_port', default_value=default_serial_port()),
         DeclareLaunchArgument('web_port', default_value='5050'),
-        Node(
-            package='rasprover_base',
-            executable='robot_base_node',
-            name='robot_base_node',
-            output='screen',
-            parameters=[{'serial_port': serial_port}],
-        ),
-        Node(
-            package='rasprover_sensors',
-            executable='slam_sensor_bridge_node',
-            name='slam_sensor_bridge_node',
-            output='screen',
-        ),
-        Node(
-            package='rasprover_control',
-            executable='command_mux_node',
-            name='command_mux_node',
-            output='screen',
-        ),
-        Node(
-            package='rasprover_ui',
-            executable='web_bridge_node',
-            name='web_bridge_node',
-            output='screen',
-            parameters=[{'port': web_port}],
-        ),
+        base_node(serial_port),
+        sensor_bridge_node('motion'),
+        command_mux_node(),
+        web_bridge_node(web_port),
     ])

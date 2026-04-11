@@ -1,0 +1,121 @@
+robot_identity:
+  profile_name: rasprover_main
+  robot_name: RaspRover
+  hardware_notes:
+    - Raspberry Pi serial base controller on /dev/ttyAMA0
+    - Wheel odometry and IMU feedback bridged by slam_sensor_bridge_node
+  authoritative_runtime_sources:
+    app_config: /home/ws/ugv_rpi/config.yaml
+    robot_baseline: /home/ws/ugv_rpi/ros2_ws/src/rasprover_bringup/config/robot_baseline.yaml
+    robot_runtime: /home/ws/ugv_rpi/ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+
+parameter_ledger:
+  - name: serial_port
+    used_by:
+      - robot_base_node
+    default_value: /dev/ttyAMA0
+    current_value: /dev/ttyAMA0
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source: none
+    notes: Update when moving to a different SBC UART or USB serial adapter.
+
+  - name: left_drive_scale
+    used_by:
+      - robot_base_node
+    default_value: 1.000
+    current_value: 1.000
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source: baseline unchanged
+    notes: Left wheel command scaling.
+
+  - name: right_drive_scale
+    used_by:
+      - robot_base_node
+    default_value: 1.000
+    current_value: 0.983
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source: inherited tuned runtime value from existing bringup launch files
+    notes: Right wheel command scaling to compensate drivetrain asymmetry.
+
+  - name: feedback_wheel_separation_m
+    used_by:
+      - robot_base_node
+      - slam_sensor_bridge_node
+    default_value: 0.52
+    current_value: 0.52
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source: mechanical geometry baseline
+    notes: Must be updated if wheel track width changes.
+
+  - name: feedback_wheel_yaw_scale
+    used_by:
+      - robot_base_node
+    default_value: 1.000
+    current_value: 2.80
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source:
+      - tools/calibration/captures/yaw_calibration_20260405_154735.csv
+      - tools/calibration/captures/yaw_calibration_20260407_135823.csv
+    notes: Encoder yaw gain used inside robot_base_node straight/yaw feedback logic.
+
+  - name: wheel_yaw_scale
+    used_by:
+      - slam_sensor_bridge_node
+    default_value: 1.000
+    current_value: 2.80
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source:
+      - tools/calibration/captures/yaw_calibration_20260405_154735.csv
+      - tools/calibration/captures/yaw_calibration_20260407_135823.csv
+    notes: Keep aligned with feedback_wheel_yaw_scale unless there is a deliberate reason not to.
+
+  - name: linear_odom_scale
+    used_by:
+      - slam_sensor_bridge_node
+    default_value: 1.000
+    current_value:
+      motion: 1.000
+      slam: 0.976
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source:
+      - tools/calibration/captures/linear_calibration_20260407_043017.csv
+    notes: SLAM/path stacks use the tuned value, motion/web stacks keep neutral scaling today.
+
+  - name: left_odom_scale
+    used_by:
+      - slam_sensor_bridge_node
+    default_value: 1.000
+    current_value:
+      motion: 1.000
+      slam: 0.990
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source:
+      - tools/calibration/captures/linear_calibration_20260407_043017.csv
+    notes: Left wheel odometry trim used for SLAM/path runs.
+
+  - name: right_odom_scale
+    used_by:
+      - slam_sensor_bridge_node
+    default_value: 1.000
+    current_value:
+      motion: 1.000
+      slam: 1.000
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source:
+      - tools/calibration/captures/linear_calibration_20260407_043017.csv
+    notes: Right side remains baseline.
+
+  - name: max_linear
+    used_by:
+      - nav_cmd_vel_bridge_node
+    default_value: 0.10
+    current_value: 0.10
+    source_of_truth: ros2_ws/src/rasprover_bringup/config/robot_runtime.yaml
+    calibration_source: operator tuning
+    notes: Navigation output clamp.
+
+update_process:
+  - Treat robot_baseline.yaml as the reference design/default layer.
+  - Treat robot_runtime.yaml as the only active runtime layer used by the app and ROS nodes.
+  - After each calibration run, update robot_runtime.yaml first, then update this ledger.
+  - Keep the calibration capture CSV path and date here so a later mismatch can be traced.

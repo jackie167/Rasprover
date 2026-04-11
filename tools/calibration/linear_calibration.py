@@ -19,6 +19,9 @@ def ensure_ros_package_path():
 ensure_ros_package_path()
 
 from rasprover_base.base_driver import BaseDriver
+from recommendation_io import build_update
+from recommendation_io import load_runtime_config
+from recommendation_io import write_recommendation
 
 
 DEFAULT_BOOT_COMMANDS = (
@@ -204,6 +207,7 @@ def main():
 
     driver = BaseDriver(port, args.baud)
     rows = []
+    runtime_config = load_runtime_config()
 
     try:
         if not args.skip_init:
@@ -258,6 +262,8 @@ def main():
 
         valid_scales = [row["recommended_linear_scale_stage"] for row in rows if row["recommended_linear_scale_stage"]]
         overall_scale = sum(valid_scales) / len(valid_scales) if valid_scales else None
+        valid_ratios = [row["left_right_ratio"] for row in rows if row["left_right_ratio"] not in (None, "")]
+        avg_ratio = sum(valid_ratios) / len(valid_ratios) if valid_ratios else None
 
         with open(output_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
@@ -284,6 +290,54 @@ def main():
             print(f"[linear_calib] overall recommended LINEAR_ODOM_SCALE={overall_scale:.6f}")
         else:
             print("[linear_calib] no valid overall scale computed.")
+
+        updates = []
+        current_linear = float(runtime_config["slam_sensor_bridge_node"]["slam"]["linear_odom_scale"])
+        current_left = float(runtime_config["slam_sensor_bridge_node"]["slam"]["left_odom_scale"])
+        current_right = float(runtime_config["slam_sensor_bridge_node"]["slam"]["right_odom_scale"])
+
+        if overall_scale is not None:
+            updates.append(
+                build_update(
+                    runtime_config,
+                    "slam_sensor_bridge_node.slam.linear_odom_scale",
+                    round(current_linear * overall_scale, 6),
+                    "Apply overall distance scaling derived from linear_calibration.",
+                )
+            )
+        if avg_ratio is not None and abs(avg_ratio) > 1e-6 and abs(1.0 - avg_ratio) >= 0.01:
+            updates.append(
+                build_update(
+                    runtime_config,
+                    "slam_sensor_bridge_node.slam.left_odom_scale",
+                    round(current_left * (1.0 / avg_ratio), 6),
+                    "Trim left odometry scale using average left/right encoder ratio.",
+                )
+            )
+            updates.append(
+                build_update(
+                    runtime_config,
+                    "slam_sensor_bridge_node.slam.right_odom_scale",
+                    round(current_right, 6),
+                    "Keep right odometry scale as baseline for this calibration pass.",
+                )
+            )
+
+        recommendation_payload = {
+            "status": "pending",
+            "recommendation_type": "linear_calibration",
+            "source_csv": str(Path(output_path).resolve()),
+            "summary": {
+                "overall_linear_scale_factor": overall_scale,
+                "average_left_right_ratio": avg_ratio,
+                "target_profile": "slam_sensor_bridge_node.slam",
+                "stage_count": len(rows),
+            },
+            "updates": updates,
+        }
+        recommendation_path, latest_path = write_recommendation(recommendation_payload, output_path)
+        print(f"[linear_calib] recommendation saved: {recommendation_path}")
+        print(f"[linear_calib] latest recommendation updated: {latest_path}")
     finally:
         try:
             driver.stop()

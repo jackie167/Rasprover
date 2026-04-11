@@ -1,5 +1,5 @@
 import json
-import os
+import sys
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
@@ -15,29 +15,16 @@ from rasprover_msgs.msg import CvTrackingTarget
 
 from .cv_ctrl import OpencvFuncs
 
-
 FALLBACK_ROOT = Path(__file__).resolve().parents[4]
+if str(FALLBACK_ROOT) not in sys.path:
+    sys.path.insert(0, str(FALLBACK_ROOT))
 
+from repo_paths import ensure_repo_on_path
+from repo_paths import find_repo_root
 
-def find_repo_root():
-    env_root = os.environ.get('PROJECT_DIR')
-    if env_root:
-        candidate = Path(env_root).resolve()
-        if (candidate / 'config.yaml').exists():
-            return candidate
-
-    for candidate in Path(__file__).resolve().parents:
-        if (candidate / 'config.yaml').exists():
-            return candidate
-
-    cwd_candidate = Path.cwd().resolve()
-    if (cwd_candidate / 'config.yaml').exists():
-        return cwd_candidate
-
-    return FALLBACK_ROOT
-
-
-REPO_ROOT = find_repo_root()
+REPO_ROOT = ensure_repo_on_path(
+    find_repo_root(start_path=__file__, fallback_root=FALLBACK_ROOT)
+)
 from app_config import AppConfig  # noqa: E402
 
 

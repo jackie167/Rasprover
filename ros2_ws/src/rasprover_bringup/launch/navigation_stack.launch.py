@@ -3,7 +3,10 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import PythonExpression
 from launch.substitutions import LaunchConfiguration
+
 from launch_ros.actions import Node
+
+from rasprover_bringup.launch_builders import nav_cmd_vel_bridge_node
 
 
 def generate_launch_description():
@@ -127,18 +130,5 @@ def generate_launch_description():
             ],
             condition=IfCondition(start_navigation),
         ),
-        Node(
-            package='rasprover_control',
-            executable='nav_cmd_vel_bridge_node',
-            name='nav_cmd_vel_bridge_node',
-            output='screen',
-            parameters=[{
-                'input_topic': '/cmd_vel_nav',
-                'output_topic': '/cv/control_intent',
-                'max_linear': 0.10,
-                'max_angular': 0.08,
-                'deadband_angular': 0.05,
-                'min_linear_floor': 0.07,
-            }],
-        ),
+        nav_cmd_vel_bridge_node(),
     ])

@@ -9,6 +9,14 @@ import threading
 import time
 from pathlib import Path
 
+CALIBRATION_DIR = Path(__file__).resolve().parents[1] / "calibration"
+if str(CALIBRATION_DIR) not in sys.path:
+    sys.path.insert(0, str(CALIBRATION_DIR))
+
+from recommendation_io import build_update
+from recommendation_io import load_runtime_config
+from recommendation_io import write_standalone_recommendation
+
 
 SLAM_DEBUG_RE = re.compile(
     r"slam_debug dt=(?P<dt>-?\d+(?:\.\d+)?) "
@@ -260,6 +268,7 @@ def main():
         help="Treat the controller as near saturation if max abs correction reaches this value.",
     )
     args = parser.parse_args()
+    runtime_config = load_runtime_config()
 
     log_file = Path(args.log_file).expanduser().resolve()
     if not log_file.exists():
@@ -362,6 +371,69 @@ def main():
     print("  export STRAIGHT_CONTROLLER_HEADING_GAIN=1.05")
     print("  export STRAIGHT_CONTROLLER_WHEEL_BALANCE_GAIN=1.00")
     print("  export STRAIGHT_CONTROLLER_MAX_CORRECTION=0.15")
+
+    updates = []
+    current_heading_gain = float(runtime_config["robot_base_node"]["straight_controller_heading_gain"])
+    current_wheel_balance_gain = float(runtime_config["robot_base_node"]["straight_controller_wheel_balance_gain"])
+    current_max_correction = float(runtime_config["robot_base_node"]["straight_controller_max_correction"])
+
+    if drift in ("left", "right"):
+        updates.append(
+            build_update(
+                runtime_config,
+                "robot_base_node.straight_controller_heading_gain",
+                round(max(current_heading_gain, 1.05), 6),
+                "Increase heading gain based on observed straight-line drift.",
+            )
+        )
+        updates.append(
+            build_update(
+                runtime_config,
+                "robot_base_node.straight_controller_wheel_balance_gain",
+                round(max(current_wheel_balance_gain, 1.00), 6),
+                "Increase wheel balance gain to compensate persistent encoder imbalance.",
+            )
+        )
+        if max_abs_correction is not None and max_abs_correction >= args.max_correction_near_limit:
+            updates.append(
+                build_update(
+                    runtime_config,
+                    "robot_base_node.straight_controller_max_correction",
+                    round(max(current_max_correction, 0.15), 6),
+                    "Increase max correction because controller is near saturation.",
+                )
+            )
+    elif drift == "straightish" and avg_correction is not None and abs(avg_correction) > 0.03:
+        updates.append(
+            build_update(
+                runtime_config,
+                "robot_base_node.straight_controller_heading_gain",
+                round(min(current_heading_gain, 0.75), 6),
+                "Reduce heading gain because robot appears straight but correction effort stays high.",
+            )
+        )
+
+    recommendation_payload = {
+        "status": "pending",
+        "recommendation_type": "straight_controller_tune",
+        "source_log": str(log_file),
+        "summary": {
+            "stop_reason": stop_reason,
+            "inferred_drift": drift,
+            "avg_heading_err": avg_heading_err,
+            "avg_balance_err": avg_balance_err,
+            "avg_correction": avg_correction,
+            "max_abs_correction": max_abs_correction,
+        },
+        "updates": updates,
+    }
+    recommendation_path, latest_path = write_standalone_recommendation(
+        recommendation_payload,
+        "straight_controller_tune",
+    )
+    print("")
+    print(f"[straight_tune] recommendation saved: {recommendation_path}")
+    print(f"[straight_tune] latest recommendation updated: {latest_path}")
 
 
 if __name__ == "__main__":

@@ -1,25 +1,17 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+
+from rasprover_bringup.launch_builders import base_node
+from rasprover_bringup.launch_builders import sensor_bridge_node
+from rasprover_bringup.runtime_config import default_serial_port
 
 
 def generate_launch_description():
     serial_port = LaunchConfiguration('serial_port')
 
     return LaunchDescription([
-        DeclareLaunchArgument('serial_port', default_value='/dev/ttyAMA0'),
-        Node(
-            package='rasprover_base',
-            executable='robot_base_node',
-            name='robot_base_node',
-            output='screen',
-            parameters=[{'serial_port': serial_port}],
-        ),
-        Node(
-            package='rasprover_sensors',
-            executable='slam_sensor_bridge_node',
-            name='slam_sensor_bridge_node',
-            output='screen',
-        ),
+        DeclareLaunchArgument('serial_port', default_value=default_serial_port()),
+        base_node(serial_port),
+        sensor_bridge_node('motion'),
     ])

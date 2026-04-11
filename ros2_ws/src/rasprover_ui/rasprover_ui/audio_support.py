@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 import threading
 import time
 from pathlib import Path
@@ -8,22 +9,13 @@ import pygame
 import pyttsx3
 import yaml
 
+FALLBACK_ROOT = Path(__file__).resolve().parents[4]
+if str(FALLBACK_ROOT) not in sys.path:
+    sys.path.insert(0, str(FALLBACK_ROOT))
 
-def find_repo_root() -> Path:
-    env_root = os.environ.get('PROJECT_DIR')
-    if env_root:
-        candidate = Path(env_root).resolve()
-        if (candidate / 'config.yaml').exists():
-            return candidate
+from repo_paths import find_repo_root
 
-    for candidate in Path(__file__).resolve().parents:
-        if (candidate / 'config.yaml').exists():
-            return candidate
-
-    return Path(__file__).resolve().parents[4]
-
-
-REPO_ROOT = find_repo_root()
+REPO_ROOT = find_repo_root(start_path=__file__, fallback_root=FALLBACK_ROOT)
 usb_connected = False
 
 with open(REPO_ROOT / 'config.yaml', 'r', encoding='utf-8') as yaml_file:

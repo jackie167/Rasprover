@@ -1,43 +1,50 @@
 # Root Layout
 
-This note explains why the repository root still contains a small set of files
-after the ROS-first cleanup.
+This note explains the current repository layout after the ROS-first cleanup
+and the follow-up root normalization pass.
 
 ## What Stays At The Root
 
-### Operator entrypoints
+### Operator scripts
 
-- `start_ros_full_stack.sh`
-- `stop_ros_full_stack.sh`
-- `status_ros_full_stack.sh`
-- `start_ros_motion_stack.sh`
-- `stop_ros_motion_stack.sh`
-- `status_ros_motion_stack.sh`
-- `start_ros_slam_stack.sh`
-- `stop_ros_slam_stack.sh`
-- `status_ros_slam_stack.sh`
-- `restart_ros_full_stack.sh`
-- `start_jupyter.sh`
-- `autorun.sh`
-- `setup.sh`
+- `ops/start_ros_*.sh`
+- `ops/stop_ros_*.sh`
+- `ops/status_ros_*.sh`
+- `ops/restart_ros_*.sh`
+- `ops/start_jupyter.sh`
+- `ops/watch_nav_build.sh`
+- `ops/autorun.sh`
+- `ops/setup.sh`
 
-These stay at the root because operators expect to run them directly.
+These live directly under `ops/`.
 
 Notes:
 
-- `restart_ros_full_stack.sh` is intentionally a small helper around stop/start.
-- runtime logs from these scripts do not stay at the root; they go to `runtime_logs/`.
+- operator commands should now be run from `ops/` paths explicitly
+- runtime logs from these scripts do not stay at the root; they go to `runtime_logs/`
 
-### Core config and support
+### Compatibility shims
 
-- `config.yaml`
 - `app_config.py`
 - `config_loader.py`
-- `asound.conf`
-- `requirements.txt`
+- `repo_paths.py`
 - `sitecustomize.py`
 
-These are project-level configuration or Python support files.
+These remain at the root only as import-compatible shims.
+
+Notes:
+
+- the actual implementations live in `project_support/`
+- existing imports such as `from app_config import AppConfig` keep working
+
+### Project config and metadata
+
+- `config.yaml`
+- `asound.conf`
+- `requirements.txt`
+- `README.md`
+- `LICENSE`
+- `.gitignore`
 
 ### Tool wrappers
 
@@ -52,12 +59,6 @@ Notes:
 
 - the real implementations live under `tools/`
 - the wrappers exist so common commands stay short and discoverable
-
-### Project metadata
-
-- `README.md`
-- `LICENSE`
-- `.gitignore`
 
 One special case:
 
@@ -79,17 +80,21 @@ One special case:
 - retired binary/helper artifacts
   archived alongside legacy runtime code when they are no longer part of the active system
 
-- legacy root Python shims
-  removed after package ownership was established
+- support module implementations
+  moved to `project_support/`
+
+- root shell operator shortcuts
+  removed in favor of direct `ops/` entrypoints
 
 ## Cleanup Rule
 
 If a new file appears at the root, it should belong to one of these categories:
 
-- operator entrypoint
-- project config/support
+- compatibility shim
+- project config/metadata
 - metadata
 - thin wrapper into `tools/`
 
-Otherwise it should probably live in a package, `tools/`, `docs/`, or the
+Otherwise it should probably live in a package, `project_support/`, `ops/`,
+`tools/`, `docs/`, or the
 legacy archive.

@@ -52,8 +52,8 @@ This note maps the current repository layout to the target blueprint without cha
 - `tools/`
   Diagnostics, calibration, and safe build helpers.
 
-- root shell entrypoints
-  Kept in place intentionally for operator convenience and backwards compatibility.
+- `ops/`
+  Owns operator shell entrypoints for start, stop, status, restart, and setup flows.
 
 - root Python runtime wrappers
   The old root-level runtime wrappers have been retired. Runtime ownership now
@@ -76,9 +76,13 @@ This note maps the current repository layout to the target blueprint without cha
   - `teleop.launch.py`
   - `web_control.launch.py`
   - `slam.launch.py`
-  - `full_system.launch.py`
+  - `slam_noekf.launch.py`
+  - `slam_ekf.launch.py`
 
-These new launch files prefer blueprint-aligned package names such as `rasprover_control`, `rasprover_ui`, and `rasprover_slam`, while compatibility paths remain available through the legacy package names.
+These launch files now share common node construction helpers under
+`rasprover_bringup.launch_builders`, which reduces duplication between runtime
+and test bringup modes while keeping compatibility paths available through the
+legacy package names.
 
 ## Ownership Status
 
@@ -122,6 +126,6 @@ retired from operation and archived for reference only.
 
 ## Retirement Direction
 
-The fallback app path has been retired and the final root Python shims have
-also been removed. Future cleanup should focus on simplifying package-internal
-legacy implementation details rather than deleting root compatibility files.
+The fallback app path has been retired. Future cleanup should focus on
+simplifying package-internal legacy implementation details rather than adding
+new top-level entrypoints.

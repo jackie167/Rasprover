@@ -1,11 +1,3 @@
-import yaml
+"""Compatibility shim for the legacy root import path."""
 
-
-def load_config(path):
-    with open(path, 'r', encoding='utf-8') as f:
-        return yaml.safe_load(f)
-
-
-def save_config(path, config):
-    with open(path, 'w', encoding='utf-8') as f:
-        yaml.dump(config, f, sort_keys=False)
+from project_support.config_loader import *  # noqa: F401,F403

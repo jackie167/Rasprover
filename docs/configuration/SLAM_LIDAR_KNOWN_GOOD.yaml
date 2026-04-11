@@ -1,0 +1,61 @@
+ros_network:
+  pi:
+    ros_localhost_only: 0
+    ros_automatic_discovery_range: SUBNET
+    ros_domain_id: 0
+    rmw_implementation: rmw_fastrtps_cpp
+    ros_static_peers: 192.168.2.11
+  ubuntu_vm:
+    ros_localhost_only: 0
+    ros_automatic_discovery_range: SUBNET
+    ros_domain_id: 0
+    rmw_implementation: rmw_fastrtps_cpp
+    ros_static_peers: 192.168.2.123
+  addresses:
+    pi_ip: 192.168.2.123
+    ubuntu_vm_ip: 192.168.2.11
+
+lidar:
+  package: rplidar_ros
+  node: rplidar_node
+  serial_port: /dev/ttyUSB0
+  serial_baudrate: 460800
+  frame_id: laser
+  inverted: false
+  angle_compensate: true
+  scan_mode: ""
+  static_tf:
+    parent_frame: base_link
+    child_frame: laser
+    x: 0.04
+    y: 0.0
+    z: 0.0
+    roll: 0.0
+    pitch: 0.0
+    yaw: 3.141592653589793
+  observed_scan:
+    expected_points_per_scan: 720
+
+slam_toolbox:
+  config_file: /home/ws/ugv_rpi/ros2_ws/src/rasprover_slam/config/slam_toolbox_online_async.yaml
+  mode: mapping
+  scan_topic: /scan
+  odom_frame: odom
+  base_frame: base_link
+  map_frame: map
+  throttle_scans: 1
+  minimum_time_interval: 0.0
+  minimum_travel_distance: 0.05
+  minimum_travel_heading: 0.05
+  scan_queue_size: 50
+  scan_buffer_size: 30
+  scan_buffer_maximum_scan_distance: 10.0
+  restamp_tf: true
+  transform_timeout: 1.0
+  transform_publish_period: 0.02
+  map_update_interval: 2.0
+  resolution: 0.05
+
+notes:
+  - Last known-good lidar and slam settings after April 2026 bringup debug.
+  - Compare runtime values against this file first if SLAM behavior regresses.

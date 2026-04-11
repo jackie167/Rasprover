@@ -51,12 +51,12 @@ You can clone this repository from Waveshare's GitHub to your local machine.
     
 ### Grant execution permission to the installation script
     cd ugv_rpi/
-    sudo chmod +x setup.sh
-    sudo chmod +x autorun.sh
+    sudo chmod +x ops/setup.sh
+    sudo chmod +x ops/autorun.sh
 ### Install app (it'll take a while before finish)
-    sudo ./setup.sh
+    sudo ./ops/setup.sh
 ### Autorun setup
-    ./autorun.sh
+    ./ops/autorun.sh
 ### AccessPopup installation
     cd AccessPopup
     sudo chmod +x installconfig.sh
@@ -95,7 +95,8 @@ If the program fails to run and encounters errors related to v4l2.py during runt
     sudo rm ugv-env/lib/python3.11/site-packages/v4l2.py  
     sudo rm /home/[your_user_name]/.local/lib/python3.11/site-packages/v4l2.py  
 
-Now you can restart the ROS stack via `start_ros_full_stack.sh`.
+Now you can restart the ROS stack via `./ops/start_ros_motion_stack.sh`.
+If you also want the CV node in that runtime, use `WITH_CV=true bash ./ops/start_ros_motion_stack.sh`.
 
 # License
 ugv_rpi for the Raspberry Pi: an open source robotics platform for the Raspberry Pi.

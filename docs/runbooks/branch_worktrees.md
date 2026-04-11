@@ -30,7 +30,7 @@ Run `ros_branch`:
 
 ```bash
 cd /home/ws/ugv_rpi
-bash ./restart_ros_slam_stack.sh
+bash ./ops/restart_ros_slam_stack.sh
 ```
 
 Open `main`:
