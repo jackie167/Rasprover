@@ -70,6 +70,10 @@ class RobotHardwareAdapter:
     def stop(self):
         self.base_driver.stop()
 
+    def send_oled_line(self, line, text):
+        self.base_driver.oled(int(line), str(text))
+        return int(line), str(text)
+
 
 class RobotFeedbackAdapter:
     """Converts legacy base feedback into ROS-native messages."""

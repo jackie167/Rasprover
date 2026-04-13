@@ -8,6 +8,7 @@ LOG_DIR="$PROJECT_DIR/.roslog"
 PID_DIR="$PROJECT_DIR/.ros_slam_pids"
 RUNTIME_LOG_DIR="$PROJECT_DIR/runtime_logs"
 LAUNCH_LOG_FILE="$RUNTIME_LOG_DIR/ros_slam_noekf.log"
+START_WEB="true"
 
 mkdir -p "$LOG_DIR" "$PID_DIR" "$RUNTIME_LOG_DIR"
 
@@ -18,7 +19,12 @@ mkdir -p "$LOG_DIR" "$PID_DIR" "$RUNTIME_LOG_DIR"
 "$SCRIPT_DIR/stop_ros_slam_ekf_stack.sh" >/dev/null 2>&1 || true
 "$SCRIPT_DIR/stop_ros_slam_stack.sh" >/dev/null 2>&1 || true
 "$SCRIPT_DIR/stop_ros_slam_noekf_stack.sh" >/dev/null 2>&1 || true
+"$SCRIPT_DIR/stop_ros_mode_selector.sh" >/dev/null 2>&1 || true
 sleep 4
+
+if [ "${KEEP_WEB_BRIDGE:-false}" = "true" ]; then
+  START_WEB="false"
+fi
 
 check_process() {
   local pattern="$1"
@@ -102,7 +108,7 @@ setsid bash -lc "
   export RMW_IMPLEMENTATION='${RMW_IMPLEMENTATION}'
   export ROS_STATIC_PEERS='${ROS_STATIC_PEERS}'
   source '$ROS_WS/install/local_setup.bash'
-  exec ros2 launch rasprover_bringup slam_noekf.launch.py
+  exec ros2 launch rasprover_bringup slam_noekf.launch.py start_web:=${START_WEB}
 " > "$LAUNCH_LOG_FILE" 2>&1 < /dev/null &
 
 LAUNCH_PID=$!

@@ -16,7 +16,9 @@ stop_pid_file() {
   rm -f "$pid_file"
 }
 
-stop_pid_file "$PID_DIR/web.pid"
+if [ "${KEEP_WEB_BRIDGE:-false}" != "true" ]; then
+  stop_pid_file "$PID_DIR/web.pid"
+fi
 stop_pid_file "$PID_DIR/joystick.pid"
 stop_pid_file "$PID_DIR/joy.pid"
 stop_pid_file "$PID_DIR/mux.pid"
@@ -30,7 +32,9 @@ pkill -f "/rasprover_localization/lib/rasprover_localization/slam_sensor_bridge_
 pkill -f "/rasprover_control/lib/rasprover_control/command_mux_node" || true
 pkill -f "/rasprover_control/lib/rasprover_control/local_joy_node" || true
 pkill -f "/rasprover_control/lib/rasprover_control/joystick_bridge_node" || true
-pkill -f "/rasprover_ui/lib/rasprover_ui/web_bridge_node" || true
+if [ "${KEEP_WEB_BRIDGE:-false}" != "true" ]; then
+  pkill -f "/rasprover_ui/lib/rasprover_ui/web_bridge_node" || true
+fi
 pkill -f "/rasprover_cv/lib/rasprover_cv/cv_node" || true
 pkill -f "/rasprover_mux/lib/rasprover_mux/command_mux_node" || true
 pkill -f "/rasprover_mux/lib/rasprover_mux/local_joy_node" || true
@@ -42,7 +46,9 @@ pkill -f "ros2 run rasprover_localization slam_sensor_bridge_node" || true
 pkill -f "ros2 run rasprover_control command_mux_node" || true
 pkill -f "ros2 run rasprover_control local_joy_node" || true
 pkill -f "ros2 run rasprover_control joystick_bridge_node" || true
-pkill -f "ros2 run rasprover_ui web_bridge_node" || true
+if [ "${KEEP_WEB_BRIDGE:-false}" != "true" ]; then
+  pkill -f "ros2 run rasprover_ui web_bridge_node" || true
+fi
 pkill -f "ros2 run rasprover_cv cv_node" || true
 pkill -f "ros2 run rasprover_mux command_mux_node" || true
 pkill -f "ros2 run rasprover_mux local_joy_node" || true

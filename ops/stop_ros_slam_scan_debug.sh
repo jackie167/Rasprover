@@ -23,6 +23,8 @@ pkill -f "/rasprover_control/lib/rasprover_control/command_mux_node" || true
 pkill -f "/rasprover_sensors/lib/rasprover_sensors/slam_sensor_bridge_node" || true
 pkill -f "/rasprover_slam/lib/rasprover_slam/simple_odom_filter_node" || true
 pkill -f "/rasprover_base/lib/rasprover_base/robot_base_node" || true
-pkill -f "/rasprover_ui/lib/rasprover_ui/web_bridge_node" || true
+if [ "${KEEP_WEB_BRIDGE:-false}" != "true" ]; then
+  pkill -f "/rasprover_ui/lib/rasprover_ui/web_bridge_node" || true
+fi
 
 echo "ros slam_scan_debug stack stopped"

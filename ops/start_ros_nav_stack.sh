@@ -26,6 +26,7 @@ if [ -z "$LOCALIZATION_MODE" ]; then
 fi
 
 "$SCRIPT_DIR/stop_ros_nav_stack.sh" >/dev/null 2>&1 || true
+"$SCRIPT_DIR/stop_ros_mode_selector.sh" >/dev/null 2>&1 || true
 sleep 1
 
 start_node() {

@@ -1,8 +1,12 @@
+import hashlib
 import json
 import mimetypes
 import os
+import re
+import subprocess
 import sys
 import threading
+import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
@@ -18,8 +22,17 @@ try:
 except Exception:  # pragma: no cover
     audio_ctrl = None
 import rclpy
+from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy
+from rclpy.qos import QoSProfile
+from rclpy.qos import ReliabilityPolicy
+from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool
+from std_msgs.msg import String
+from tf2_msgs.msg import TFMessage
+from slam_toolbox.srv import SaveMap as SlamSaveMap
 
 from rasprover_msgs.msg import GimbalCommand
 from rasprover_msgs.msg import LightCommand
@@ -91,9 +104,11 @@ class WebBridgeNode(Node):
 
         self.declare_parameter('host', '0.0.0.0')
         self.declare_parameter('port', 5050)
+        self.declare_parameter('boot_role', 'standard')
 
         self.host = self.get_parameter('host').get_parameter_value().string_value
         self.port = self.get_parameter('port').get_parameter_value().integer_value
+        self.boot_role = self.get_parameter('boot_role').get_parameter_value().string_value or 'standard'
         self.cv_host = '127.0.0.1'
         self.cv_port = 5051
         self.repo_root = find_repo_root(
@@ -105,6 +120,8 @@ class WebBridgeNode(Node):
         self.photo_dir = self.repo_root / 'templates' / 'pictures'
         self.video_dir = self.repo_root / 'templates' / 'videos'
         self.audio_dir = self.repo_root / 'sounds' / 'others'
+        self.maps_dir = self.repo_root / 'maps'
+        self.maps_dir.mkdir(parents=True, exist_ok=True)
 
         self.latest_feedback = {
             'battery_voltage': 0.0,
@@ -117,23 +134,89 @@ class WebBridgeNode(Node):
             'raw_available': False,
         }
         self._feedback_lock = threading.Lock()
+        self._health_lock = threading.Lock()
+        self._map_save_lock = threading.Lock()
+        self._mode_lock = threading.Lock()
+        self.last_map_save = {
+            'ok': False,
+            'status': 'idle',
+            'message': 'No map saved yet',
+            'stem': '',
+            'yaml_path': '',
+            'pgm_path': '',
+            'requested_at': 0.0,
+            'completed_at': 0.0,
+        }
+        self.health_streams = {
+            'feedback': self._new_stream_state(required=True, timeout_sec=1.5),
+            'scan': self._new_stream_state(required=True, timeout_sec=1.5),
+            'wheel_odom': self._new_stream_state(required=True, timeout_sec=1.5),
+            'filtered_odom': self._new_stream_state(required=False, timeout_sec=1.5),
+            'map': self._new_stream_state(required=True, timeout_sec=5.0),
+            'tf': self._new_stream_state(required=True, timeout_sec=2.0),
+            'tf_static': self._new_stream_state(required=True, timeout_sec=30.0),
+        }
+        self.required_dynamic_transforms = {('odom', 'base_link'), ('map', 'odom')}
+        self.dynamic_transforms_seen = {}
+        self.static_transforms_seen = {}
+        self.map_first_header_stamp = None
+        self.map_last_header_stamp = None
+        self.map_header_advance_count = 0
+        self.map_digest = None
+        self.map_change_count = 0
+        self.map_dimensions = {'width': 0, 'height': 0, 'resolution': 0.0}
+        self.map_nonempty = False
+        self.mode_state = {
+            'current_mode': 'idle',
+            'requested_mode': 'idle',
+            'phase': 'ready',
+            'busy': False,
+            'summary': 'Ready',
+            'last_error': '',
+            'updated_at': time.time(),
+        }
+        self.mode_thread = None
 
         self.motion_pub = self.create_publisher(MotionCommand, '/ui/cmd/motion', 10)
         self.gimbal_pub = self.create_publisher(GimbalCommand, '/ui/cmd/gimbal', 10)
         self.light_pub = self.create_publisher(LightCommand, '/ui/cmd/lights', 10)
         self.servo_setup_pub = self.create_publisher(ServoSetupCommand, '/ui/cmd/servo_setup', 10)
         self.stop_pub = self.create_publisher(Bool, '/system/cmd/stop', 10)
+        self.oled_pub = self.create_publisher(String, '/robot/cmd/oled', 10)
         self.feedback_sub = self.create_subscription(
             RobotFeedback,
             '/robot/state/feedback',
             self.handle_feedback,
             10,
         )
+        self.slam_save_map_client = self.create_client(SlamSaveMap, '/slam_toolbox/save_map')
+        self.scan_sub = self.create_subscription(LaserScan, '/scan', self.handle_scan, 20)
+        self.wheel_odom_sub = self.create_subscription(Odometry, '/wheel/odometry', self.handle_wheel_odom, 20)
+        self.filtered_odom_sub = self.create_subscription(
+            Odometry,
+            '/odometry/filtered',
+            self.handle_filtered_odom,
+            20,
+        )
+        self.map_sub = self.create_subscription(OccupancyGrid, '/map', self.handle_map, 10)
+        self.tf_sub = self.create_subscription(TFMessage, '/tf', self.handle_tf, 50)
+        self.tf_static_sub = self.create_subscription(
+            TFMessage,
+            '/tf_static',
+            self.handle_tf_static,
+            QoSProfile(
+                depth=10,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            ),
+        )
 
         self.http_server = None
         self.http_thread = None
         self._start_http_server()
         self.get_logger().info(f'web_bridge_node serving HTTP on http://{self.host}:{self.port}')
+        if self.boot_role == 'selector':
+            threading.Thread(target=self._initialize_selector_boot, daemon=True).start()
 
     @staticmethod
     def _sorted_files(directory, suffixes=None):
@@ -155,6 +238,252 @@ class WebBridgeNode(Node):
         if directory.resolve() not in target.parents and target != directory.resolve():
             raise ValueError('invalid path')
         return target
+
+    def _list_saved_maps(self):
+        if not self.maps_dir.exists():
+            return []
+        entries = []
+        for yaml_path in sorted(self.maps_dir.glob('*.yaml'), key=lambda item: item.stat().st_mtime, reverse=True):
+            stem = yaml_path.stem
+            image_path = None
+            for suffix in ('.pgm', '.png', '.bmp'):
+                candidate = self.maps_dir / f'{stem}{suffix}'
+                if candidate.exists():
+                    image_path = candidate
+                    break
+            if image_path is None:
+                continue
+            entries.append({
+                'name': stem,
+                'yaml': yaml_path.name,
+                'image': image_path.name,
+                'image_format': image_path.suffix.lower().lstrip('.'),
+                'updated_at': int(yaml_path.stat().st_mtime),
+            })
+        return entries
+
+    def _initialize_selector_boot(self):
+        time.sleep(2.0)
+        self._set_mode_state(
+            current_mode='idle',
+            requested_mode='idle',
+            phase='ready',
+            busy=False,
+            summary='Ready',
+            last_error='',
+        )
+        self.show_oled_message('Ready')
+
+    def _mode_snapshot(self):
+        with self._mode_lock:
+            return dict(self.mode_state)
+
+    def _set_mode_state(self, **updates):
+        with self._mode_lock:
+            self.mode_state.update(updates)
+            self.mode_state['updated_at'] = time.time()
+            return dict(self.mode_state)
+
+    @staticmethod
+    def _normalize_mode_name(mode):
+        mode = str(mode or '').strip().lower()
+        aliases = {
+            'nav': 'navi',
+            'navigation': 'navi',
+            'selector': 'idle',
+            'ready': 'idle',
+        }
+        return aliases.get(mode, mode)
+
+    @staticmethod
+    def _mode_label(mode):
+        labels = {
+            'idle': 'Ready',
+            'slam': 'Slam',
+            'motion': 'Motion',
+            'navi': 'Navi',
+        }
+        return labels.get(mode, str(mode).title())
+
+    def publish_oled_line(self, line, text):
+        payload = String()
+        payload.data = json.dumps({
+            'action': 'set_line',
+            'line': int(line),
+            'text': str(text),
+        }, ensure_ascii=True, separators=(',', ':'))
+        self.oled_pub.publish(payload)
+
+    def show_oled_message(self, text):
+        lines = ['', str(text), '', '']
+        for line_number, line_text in enumerate(lines):
+            self.publish_oled_line(line_number, line_text)
+            time.sleep(0.05)
+
+    def _run_ops_script(self, script_name, extra_env=None):
+        env = os.environ.copy()
+        env.update(extra_env or {})
+        script_path = self.repo_root / 'ops' / script_name
+        return subprocess.run(
+            ['bash', str(script_path)],
+            cwd=str(self.repo_root),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=240,
+            check=False,
+        )
+
+    def _transition_mode(self, mode):
+        mode = self._normalize_mode_name(mode)
+        label = self._mode_label(mode)
+        try:
+            if mode == 'idle':
+                self._set_mode_state(
+                    requested_mode='idle',
+                    phase='starting',
+                    busy=True,
+                    summary='Switching to Ready...',
+                    last_error='',
+                )
+                result = self._run_ops_script(
+                    'start_ros_mode_selector.sh',
+                    {'KEEP_WEB_BRIDGE': 'true'},
+                )
+                if result.returncode != 0:
+                    self.show_oled_message('Ready Fail')
+                    self._set_mode_state(
+                        current_mode='idle',
+                        requested_mode='idle',
+                        phase='failed',
+                        busy=False,
+                        summary='Ready setup failed',
+                        last_error=(result.stdout or '').strip()[-400:],
+                    )
+                    return
+                self.show_oled_message('Ready')
+                self._set_mode_state(
+                    current_mode='idle',
+                    requested_mode='idle',
+                    phase='ready',
+                    busy=False,
+                    summary='Ready',
+                    last_error='',
+                )
+                return
+
+            script_map = {
+                'slam': 'start_ros_slam_noekf_stack.sh',
+                'motion': 'start_ros_motion_stack.sh',
+                'navi': 'start_ros_nav_stack.sh',
+            }
+            if mode not in script_map:
+                raise ValueError(f'unsupported mode: {mode}')
+
+            self._set_mode_state(
+                requested_mode=mode,
+                phase='starting',
+                busy=True,
+                summary=f'{label}...',
+                last_error='',
+            )
+            self.show_oled_message(f'{label}...')
+            result = self._run_ops_script(
+                script_map[mode],
+                {'KEEP_WEB_BRIDGE': 'true'},
+            )
+            if result.returncode != 0:
+                self.show_oled_message(f'{label} ... Fail')
+                self._set_mode_state(
+                    current_mode=mode,
+                    requested_mode=mode,
+                    phase='failed',
+                    busy=False,
+                    summary=f'{label} ... Fail',
+                    last_error=(result.stdout or '').strip()[-400:],
+                )
+                return
+
+            if mode == 'slam':
+                self._set_mode_state(
+                    current_mode='slam',
+                    requested_mode='slam',
+                    phase='checking',
+                    busy=True,
+                    summary='Slam health check...',
+                    last_error='',
+                )
+                deadline = time.monotonic() + 120.0
+                while time.monotonic() < deadline:
+                    snapshot = self.build_health_snapshot()
+                    if snapshot['slam_ready']:
+                        self.show_oled_message('Slam ... OK')
+                        self._set_mode_state(
+                            current_mode='slam',
+                            requested_mode='slam',
+                            phase='running',
+                            busy=False,
+                            summary='Slam ... OK',
+                            last_error='',
+                        )
+                        return
+                    time.sleep(2.0)
+                self.show_oled_message('Slam ... Fail')
+                self._set_mode_state(
+                    current_mode='slam',
+                    requested_mode='slam',
+                    phase='failed',
+                    busy=False,
+                    summary='Slam ... Fail',
+                    last_error='Timed out waiting for SLAM health OK',
+                )
+                return
+
+            self.show_oled_message(f'{label} ... OK')
+            self._set_mode_state(
+                current_mode=mode,
+                requested_mode=mode,
+                phase='running',
+                busy=False,
+                summary=f'{label} ... OK',
+                last_error='',
+            )
+        except Exception as exc:  # pragma: no cover - defensive runtime handling
+            self.show_oled_message(f'{label} ... Fail')
+            self._set_mode_state(
+                current_mode=mode,
+                requested_mode=mode,
+                phase='failed',
+                busy=False,
+                summary=f'{label} ... Fail',
+                last_error=str(exc),
+            )
+
+    def handle_mode_request(self, payload):
+        mode = self._normalize_mode_name(payload.get('mode', ''))
+        if mode not in {'idle', 'slam', 'motion', 'navi'}:
+            return {'ok': False, 'error': 'unsupported mode'}, HTTPStatus.BAD_REQUEST
+
+        with self._mode_lock:
+            if self.mode_state.get('busy'):
+                return {
+                    'ok': False,
+                    'error': 'mode transition already running',
+                    'mode': dict(self.mode_state),
+                }, HTTPStatus.CONFLICT
+            self.mode_state.update({
+                'requested_mode': mode,
+                'busy': True,
+                'phase': 'queued',
+                'summary': f'{self._mode_label(mode)} queued',
+                'last_error': '',
+                'updated_at': time.time(),
+            })
+
+        self.mode_thread = threading.Thread(target=self._transition_mode, args=(mode,), daemon=True)
+        self.mode_thread.start()
+        return {'ok': True, 'mode': self._mode_snapshot()}, HTTPStatus.ACCEPTED
 
     def _start_http_server(self):
         node = self
@@ -194,11 +523,34 @@ class WebBridgeNode(Node):
                 route = parsed.path
 
                 if route == '/health':
-                    self._send_json({'ok': True, 'node': 'web_bridge_node'})
+                    self._send_json(node.build_health_snapshot())
+                    return
+                if route == '/health/summary':
+                    snapshot = node.build_health_snapshot()
+                    status = 'PASS' if snapshot['slam_ready'] else 'FAIL'
+                    body = f'{status} {snapshot["summary"]}\n'.encode('utf-8')
+                    self._send_bytes(body, 'text/plain; charset=utf-8')
+                    return
+                if route == '/api/health/summary':
+                    snapshot = node.build_health_snapshot()
+                    self._send_json({
+                        'ok': bool(snapshot['slam_ready']),
+                        'status': 'PASS' if snapshot['slam_ready'] else 'FAIL',
+                        'summary': snapshot['summary'],
+                    })
+                    return
+                if route == '/api/mode/status':
+                    self._send_json(node._mode_snapshot())
                     return
                 if route == '/state':
                     with node._feedback_lock:
                         payload = dict(node.latest_feedback)
+                    payload['health'] = node.build_health_snapshot()
+                    payload['slam_ready'] = bool(payload['health']['slam_ready'])
+                    payload['health_summary'] = str(payload['health']['summary'])
+                    payload['mode'] = node._mode_snapshot()
+                    with node._map_save_lock:
+                        payload['map_save'] = dict(node.last_map_save)
                     self._send_json(payload)
                     return
                 if route == '/api/cv/status':
@@ -218,6 +570,9 @@ class WebBridgeNode(Node):
                 if route == '/video':
                     self._send_bytes(node.render_video_page().encode('utf-8'), 'text/html; charset=utf-8')
                     return
+                if route == '/maps':
+                    self._send_bytes(node.render_maps_page().encode('utf-8'), 'text/html; charset=utf-8')
+                    return
                 if route == '/settings':
                     self._send_bytes(node.render_settings_page().encode('utf-8'), 'text/html; charset=utf-8')
                     return
@@ -232,6 +587,9 @@ class WebBridgeNode(Node):
                     return
                 if route == '/api/audio':
                     self._send_json(node._sorted_files(node.audio_dir, {'.mp3', '.wav'}))
+                    return
+                if route == '/api/maps':
+                    self._send_json(node._list_saved_maps())
                     return
                 if route.startswith('/photos/'):
                     filename = unquote(route[len('/photos/'):])
@@ -248,6 +606,17 @@ class WebBridgeNode(Node):
                     filename = unquote(route[len('/videos/'):])
                     try:
                         target = node._safe_child(node.video_dir, filename)
+                        body = target.read_bytes()
+                    except Exception:
+                        self._send_json({'error': 'not found'}, status=HTTPStatus.NOT_FOUND)
+                        return
+                    content_type = mimetypes.guess_type(target.name)[0] or 'application/octet-stream'
+                    self._send_bytes(body, content_type)
+                    return
+                if route.startswith('/maps/'):
+                    filename = unquote(route[len('/maps/'):])
+                    try:
+                        target = node._safe_child(node.maps_dir, filename)
                         body = target.read_bytes()
                     except Exception:
                         self._send_json({'error': 'not found'}, status=HTTPStatus.NOT_FOUND)
@@ -354,6 +723,16 @@ class WebBridgeNode(Node):
                     self._send_json({'ok': True})
                     return
 
+                if route == '/api/slam/save_map':
+                    result, status = node.handle_save_map_request(payload)
+                    self._send_json(result, status=status)
+                    return
+
+                if route == '/api/mode/select':
+                    result, status = node.handle_mode_request(payload)
+                    self._send_json(result, status=status)
+                    return
+
                 if route == '/api/photos/delete':
                     filename = str(payload.get('filename', ''))
                     try:
@@ -395,6 +774,380 @@ class WebBridgeNode(Node):
                 'fault_flags': list(msg.fault_flags),
                 'raw_available': bool(msg.raw_available),
             }
+        self._mark_stream_seen('feedback', stamp=msg.stamp, raw_available=bool(msg.raw_available))
+
+    @staticmethod
+    def _new_stream_state(required, timeout_sec):
+        return {
+            'required': bool(required),
+            'timeout_sec': float(timeout_sec),
+            'count': 0,
+            'last_seen_monotonic': None,
+            'last_header_stamp': None,
+            'last_detail': {},
+        }
+
+    @staticmethod
+    def _stamp_to_seconds(stamp):
+        return float(stamp.sec) + float(stamp.nanosec) / 1_000_000_000.0
+
+    @staticmethod
+    def _normalize_frame(frame_id):
+        return str(frame_id or '').lstrip('/')
+
+    def _mark_stream_seen(self, key, stamp=None, **detail):
+        now = time.monotonic()
+        with self._health_lock:
+            stream = self.health_streams[key]
+            stream['count'] += 1
+            stream['last_seen_monotonic'] = now
+            if stamp is not None:
+                stream['last_header_stamp'] = self._stamp_to_seconds(stamp)
+            if detail:
+                stream['last_detail'] = detail
+
+    def handle_scan(self, msg):
+        self._mark_stream_seen(
+            'scan',
+            stamp=msg.header.stamp,
+            frame_id=msg.header.frame_id,
+            range_count=len(msg.ranges),
+        )
+
+    def handle_wheel_odom(self, msg):
+        self._mark_stream_seen(
+            'wheel_odom',
+            stamp=msg.header.stamp,
+            frame_id=msg.header.frame_id,
+            child_frame_id=msg.child_frame_id,
+        )
+
+    def handle_filtered_odom(self, msg):
+        self._mark_stream_seen(
+            'filtered_odom',
+            stamp=msg.header.stamp,
+            frame_id=msg.header.frame_id,
+            child_frame_id=msg.child_frame_id,
+        )
+
+    def handle_map(self, msg):
+        stamp_seconds = self._stamp_to_seconds(msg.header.stamp)
+        data = msg.data
+        sample_step = max(1, len(data) // 256) if data else 1
+        sample = bytearray(((int(value) + 1) & 0xFF) for value in data[::sample_step][:256])
+        digest = hashlib.sha1(
+            (
+                f"{msg.info.width}:{msg.info.height}:{msg.info.resolution:.6f}:".encode('ascii')
+                + sample
+            )
+        ).hexdigest()
+
+        with self._health_lock:
+            if self.map_first_header_stamp is None:
+                self.map_first_header_stamp = stamp_seconds
+            if self.map_last_header_stamp is not None and stamp_seconds > self.map_last_header_stamp:
+                self.map_header_advance_count += 1
+            if self.map_digest is not None and digest != self.map_digest:
+                self.map_change_count += 1
+            self.map_digest = digest
+            self.map_last_header_stamp = stamp_seconds
+            self.map_dimensions = {
+                'width': int(msg.info.width),
+                'height': int(msg.info.height),
+                'resolution': float(msg.info.resolution),
+            }
+            self.map_nonempty = bool(msg.info.width and msg.info.height and len(data))
+
+        self._mark_stream_seen(
+            'map',
+            stamp=msg.header.stamp,
+            width=int(msg.info.width),
+            height=int(msg.info.height),
+            resolution=float(msg.info.resolution),
+        )
+
+    def handle_tf(self, msg):
+        self._handle_tf_message(msg, is_static=False)
+
+    def handle_tf_static(self, msg):
+        self._handle_tf_message(msg, is_static=True)
+
+    def _handle_tf_message(self, msg, is_static):
+        stream_key = 'tf_static' if is_static else 'tf'
+        seen_any = False
+        now = time.monotonic()
+        with self._health_lock:
+            target_store = self.static_transforms_seen if is_static else self.dynamic_transforms_seen
+            for transform in msg.transforms:
+                parent = self._normalize_frame(transform.header.frame_id)
+                child = self._normalize_frame(transform.child_frame_id)
+                if not parent or not child:
+                    continue
+                seen_any = True
+                target_store[(parent, child)] = now
+        if seen_any:
+            stamp = msg.transforms[0].header.stamp if msg.transforms else None
+            self._mark_stream_seen(stream_key, stamp=stamp, transform_count=len(msg.transforms))
+
+    def _build_stream_check(self, key):
+        now = time.monotonic()
+        with self._health_lock:
+            stream = dict(self.health_streams[key])
+        last_seen = stream['last_seen_monotonic']
+        age_sec = None if last_seen is None else max(0.0, now - last_seen)
+        recent = age_sec is not None and age_sec <= stream['timeout_sec']
+        ok = stream['count'] > 0 and recent
+        if key == 'feedback':
+            ok = ok and bool(stream['last_detail'].get('raw_available'))
+        return {
+            'required': bool(stream['required']),
+            'ok': bool(ok),
+            'count': int(stream['count']),
+            'age_sec': age_sec,
+            'timeout_sec': float(stream['timeout_sec']),
+            'detail': dict(stream['last_detail']),
+        }
+
+    def build_health_snapshot(self):
+        feedback = self._build_stream_check('feedback')
+        scan = self._build_stream_check('scan')
+        wheel_odom = self._build_stream_check('wheel_odom')
+        filtered_odom = self._build_stream_check('filtered_odom')
+        map_stream = self._build_stream_check('map')
+        tf_dynamic = self._build_stream_check('tf')
+        tf_static = self._build_stream_check('tf_static')
+
+        now = time.monotonic()
+        with self._health_lock:
+            dynamic_seen = {
+                f'{parent}->{child}': max(0.0, now - seen_at)
+                for (parent, child), seen_at in self.dynamic_transforms_seen.items()
+            }
+            static_seen = {
+                f'{parent}->{child}': max(0.0, now - seen_at)
+                for (parent, child), seen_at in self.static_transforms_seen.items()
+            }
+            required_dynamic = {}
+            dynamic_tf_ok = True
+            for transform in self.required_dynamic_transforms:
+                seen_at = self.dynamic_transforms_seen.get(transform)
+                transform_ok = seen_at is not None and (now - seen_at) <= self.health_streams['tf']['timeout_sec']
+                required_dynamic[f'{transform[0]}->{transform[1]}'] = transform_ok
+                dynamic_tf_ok = dynamic_tf_ok and transform_ok
+            laser_tf_ok = any(
+                parent == 'base_link' and child.startswith('laser')
+                for (parent, child) in self.static_transforms_seen
+            )
+            map_dimensions = dict(self.map_dimensions)
+            map_header_advance_count = int(self.map_header_advance_count)
+            map_change_count = int(self.map_change_count)
+            map_nonempty = bool(self.map_nonempty)
+
+        map_streaming_ok = map_stream['ok'] and map_stream['count'] >= 2 and map_nonempty
+        map_updating_ok = map_streaming_ok and (map_header_advance_count >= 1 or map_change_count >= 1)
+        filtered_required_now = filtered_odom['count'] > 0
+        filtered_effective_ok = filtered_odom['ok'] if filtered_required_now else True
+        slam_ready = bool(
+            feedback['ok']
+            and scan['ok']
+            and wheel_odom['ok']
+            and filtered_effective_ok
+            and dynamic_tf_ok
+            and laser_tf_ok
+            and map_updating_ok
+        )
+
+        if slam_ready:
+            summary = 'SLAM OK'
+        elif not feedback['ok']:
+            summary = 'Waiting base feedback'
+        elif not scan['ok']:
+            summary = 'Waiting /scan'
+        elif not wheel_odom['ok']:
+            summary = 'Waiting /wheel/odometry'
+        elif not filtered_effective_ok:
+            summary = 'Waiting /odometry/filtered'
+        elif not dynamic_tf_ok:
+            summary = 'Waiting TF chain'
+        elif not laser_tf_ok:
+            summary = 'Waiting static laser TF'
+        elif not map_stream['ok']:
+            summary = 'Waiting /map'
+        elif not map_streaming_ok:
+            summary = 'Waiting /map stream'
+        else:
+            summary = 'Waiting /map update'
+
+        return {
+            'ok': bool(slam_ready),
+            'node': 'web_bridge_node',
+            'slam_ready': bool(slam_ready),
+            'summary': summary,
+            'checks': {
+                'feedback': feedback,
+                'scan': scan,
+                'wheel_odom': wheel_odom,
+                'filtered_odom': filtered_odom,
+                'filtered_odom_policy': {
+                    'required_now': bool(filtered_required_now),
+                    'effective_ok': bool(filtered_effective_ok),
+                },
+                'map': {
+                    **map_stream,
+                    'streaming_ok': bool(map_streaming_ok),
+                    'updating_ok': bool(map_updating_ok),
+                    'header_advance_count': map_header_advance_count,
+                    'change_count': map_change_count,
+                    'nonempty': map_nonempty,
+                    'dimensions': map_dimensions,
+                },
+                'tf': {
+                    **tf_dynamic,
+                    'required': required_dynamic,
+                    'dynamic_seen_age_sec': dynamic_seen,
+                    'dynamic_ok': bool(dynamic_tf_ok),
+                },
+                'tf_static': {
+                    **tf_static,
+                    'static_seen_age_sec': static_seen,
+                    'laser_tf_ok': bool(laser_tf_ok),
+                },
+            },
+        }
+
+    @staticmethod
+    def _sanitize_map_name(name):
+        value = re.sub(r'[^A-Za-z0-9._-]+', '_', str(name or '').strip()).strip('._-')
+        return value[:80] if value else ''
+
+    def handle_save_map_request(self, payload):
+        snapshot = self.build_health_snapshot()
+        if not snapshot['slam_ready']:
+            result = {
+                'ok': False,
+                'status': 'rejected',
+                'message': f'Cannot save map until SLAM is ready: {snapshot["summary"]}',
+                'health_summary': snapshot['summary'],
+            }
+            with self._map_save_lock:
+                self.last_map_save = {
+                    **self.last_map_save,
+                    **result,
+                    'requested_at': time.time(),
+                    'completed_at': time.time(),
+                }
+            return result, HTTPStatus.CONFLICT
+
+        requested_name = self._sanitize_map_name(payload.get('name', ''))
+        if requested_name:
+            stem_name = requested_name
+        else:
+            stem_name = time.strftime('slam_map_%Y%m%d_%H%M%S')
+        target_stem = self.maps_dir / stem_name
+        yaml_path = target_stem.with_suffix('.yaml')
+        pgm_path = target_stem.with_suffix('.pgm')
+        requested_at = time.time()
+
+        with self._map_save_lock:
+            self.last_map_save = {
+                'ok': False,
+                'status': 'running',
+                'message': f'Saving map to {target_stem}',
+                'stem': str(target_stem),
+                'yaml_path': str(yaml_path),
+                'pgm_path': str(pgm_path),
+                'requested_at': requested_at,
+                'completed_at': 0.0,
+            }
+
+        if not self.slam_save_map_client.wait_for_service(timeout_sec=3.0):
+            result = {
+                'ok': False,
+                'status': 'unavailable',
+                'message': 'slam_toolbox save_map service is unavailable',
+                'stem': str(target_stem),
+                'yaml_path': str(yaml_path),
+                'pgm_path': str(pgm_path),
+            }
+            with self._map_save_lock:
+                self.last_map_save = {
+                    **result,
+                    'requested_at': requested_at,
+                    'completed_at': time.time(),
+                }
+            return result, HTTPStatus.SERVICE_UNAVAILABLE
+
+        request = SlamSaveMap.Request()
+        request.name.data = str(target_stem)
+        future = self.slam_save_map_client.call_async(request)
+        done = threading.Event()
+        holder = {}
+
+        def _finish(fut):
+            holder['future'] = fut
+            done.set()
+
+        future.add_done_callback(_finish)
+        if not done.wait(45.0):
+            future.cancel()
+            result = {
+                'ok': False,
+                'status': 'timeout',
+                'message': 'Map save service timed out',
+                'stem': str(target_stem),
+                'yaml_path': str(yaml_path),
+                'pgm_path': str(pgm_path),
+            }
+            with self._map_save_lock:
+                self.last_map_save = {
+                    **result,
+                    'requested_at': requested_at,
+                    'completed_at': time.time(),
+                }
+            return result, HTTPStatus.GATEWAY_TIMEOUT
+
+        service_future = holder['future']
+        service_error = service_future.exception()
+        if service_error is not None:
+            result = {
+                'ok': False,
+                'status': 'failed',
+                'message': f'Map save service failed: {service_error}',
+                'stem': str(target_stem),
+                'yaml_path': str(yaml_path),
+                'pgm_path': str(pgm_path),
+            }
+            with self._map_save_lock:
+                self.last_map_save = {
+                    **result,
+                    'requested_at': requested_at,
+                    'completed_at': time.time(),
+                }
+            return result, HTTPStatus.BAD_GATEWAY
+
+        response = service_future.result()
+        ok = (
+            response is not None
+            and int(response.result) == int(SlamSaveMap.Response.RESULT_SUCCESS)
+            and yaml_path.exists()
+            and pgm_path.exists()
+        )
+        result = {
+            'ok': bool(ok),
+            'status': 'saved' if ok else 'failed',
+            'message': f'Map saved to {target_stem}' if ok else 'Map save failed',
+            'stem': str(target_stem),
+            'yaml_path': str(yaml_path),
+            'pgm_path': str(pgm_path),
+            'service_result': None if response is None else int(response.result),
+        }
+        with self._map_save_lock:
+            self.last_map_save = {
+                **result,
+                'requested_at': requested_at,
+                'completed_at': time.time(),
+            }
+        return result, HTTPStatus.OK if ok else HTTPStatus.BAD_GATEWAY
 
     def cv_request(self, method, path, payload=None):
         url = f'http://{self.cv_host}:{self.cv_port}{path}'
@@ -425,7 +1178,7 @@ class WebBridgeNode(Node):
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rasprover Motion UI</title>
+  <title>Rasprover Robot UI</title>
   <style>
     :root {
       --bg: #f3efe6;
@@ -477,6 +1230,46 @@ class WebBridgeNode(Node):
       padding: 10px 14px;
       font-weight: 700;
       box-shadow: 0 10px 25px rgba(21,35,26,0.08);
+    }
+    .mode-panel {
+      margin-bottom: 18px;
+    }
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .mode-btn {
+      border: 0;
+      border-radius: 20px;
+      padding: 18px 14px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 1rem;
+      cursor: pointer;
+      background: linear-gradient(180deg, #355647, #1d3329);
+      box-shadow: 0 14px 24px rgba(29,51,41,0.18);
+    }
+    .mode-btn[data-mode="slam"] {
+      background: linear-gradient(180deg, #d66a2a, #8c3d12);
+    }
+    .mode-btn[data-mode="motion"] {
+      background: linear-gradient(180deg, #4d7260, #274539);
+    }
+    .mode-btn[data-mode="navi"] {
+      background: linear-gradient(180deg, #305f8c, #18344d);
+    }
+    .mode-btn:disabled {
+      opacity: 0.55;
+      cursor: wait;
+      box-shadow: none;
+    }
+    .mode-meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
     }
     .grid {
       display: grid;
@@ -627,6 +1420,8 @@ class WebBridgeNode(Node):
     }
     @media (max-width: 760px) {
       .grid { grid-template-columns: 1fr; }
+      .mode-grid { grid-template-columns: 1fr; }
+      .mode-meta { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -634,17 +1429,37 @@ class WebBridgeNode(Node):
   <div class="shell">
     <div class="hero">
       <div>
-        <h1>Rasprover Motion</h1>
-        <p>ROS-native motion UI. This page talks to <code>web_bridge_node</code>, which forwards motion into <code>command_mux_node</code> and then <code>robot_base_node</code>.</p>
+        <h1>Rasprover Robot</h1>
+        <p>Boot selector and runtime UI. Power on lands here in <code>Ready</code>, then you choose which robot mode to bring up.</p>
         <div class="nav-links">
           <a href="/photo">Photos</a>
           <a href="/video">Videos</a>
+          <a href="/maps">Maps</a>
           <a href="/settings">Settings</a>
           <a href="/legacy-ui">Legacy Style</a>
           <a href="#" id="cvFeedLink" target="_blank">CV Feed</a>
         </div>
       </div>
       <div class="badge" id="healthBadge">Bridge Ready</div>
+    </div>
+
+    <div class="card mode-panel">
+      <h2>Mode Selector</h2>
+      <div class="mode-grid">
+        <button class="mode-btn" data-mode="slam" id="modeSlamBtn">Slam</button>
+        <button class="mode-btn" data-mode="motion" id="modeMotionBtn">Motion</button>
+        <button class="mode-btn" data-mode="navi" id="modeNaviBtn">Navi</button>
+      </div>
+      <div class="mini-actions" style="margin-top: 12px;">
+        <button class="small-btn" id="modeReadyBtn">Back To Ready</button>
+      </div>
+      <div class="mode-meta">
+        <div class="stat"><span class="label">Current</span><span class="value" id="modeCurrentValue">idle</span></div>
+        <div class="stat"><span class="label">Requested</span><span class="value" id="modeRequestedValue">idle</span></div>
+        <div class="stat"><span class="label">Phase</span><span class="value" id="modePhaseValue">ready</span></div>
+        <div class="stat"><span class="label">OLED / Summary</span><span class="value" id="modeSummaryValue">Ready</span></div>
+      </div>
+      <div class="foot" id="modeErrorValue">No mode errors.</div>
     </div>
 
     <div class="grid">
@@ -663,18 +1478,18 @@ class WebBridgeNode(Node):
 
         <div class="pad">
           <div class="empty ctrl"></div>
-          <button class="ctrl" data-linear="1" data-angular="0">Forward</button>
+          <button class="ctrl" id="forwardBtn">Forward</button>
           <div class="empty ctrl"></div>
-          <button class="ctrl secondary" data-linear="0" data-angular="1">Left</button>
+          <button class="ctrl secondary" id="leftBtn">Left</button>
           <button class="ctrl stop" id="stopBtn">Stop</button>
-          <button class="ctrl secondary" data-linear="0" data-angular="-1">Right</button>
+          <button class="ctrl secondary" id="rightBtn">Right</button>
           <div class="empty ctrl"></div>
-          <button class="ctrl" data-linear="-1" data-angular="0">Reverse</button>
+          <button class="ctrl" id="reverseBtn">Reverse</button>
           <div class="empty ctrl"></div>
         </div>
 
         <div class="foot">
-          Keyboard: <strong>W/A/S/D</strong> for motion, <strong>Space</strong> for stop.
+          Tap <strong>Forward</strong> or <strong>Reverse</strong> to latch movement. Hold <strong>Left</strong> or <strong>Right</strong> to steer, then release to continue straight. <strong>Stop</strong> ends motion.
         </div>
       </div>
 
@@ -735,6 +1550,14 @@ class WebBridgeNode(Node):
         <div class="stat"><span class="label">Base Light</span><span class="value" id="baseLightValue">--</span></div>
         <div class="stat"><span class="label">Head Light</span><span class="value" id="headLightValue">--</span></div>
         <div class="stat"><span class="label">Faults</span><span class="value" id="faultValue">none</span></div>
+      </div>
+
+      <div class="card">
+        <h2>SLAM Ops</h2>
+        <div class="mini-actions">
+          <button class="small-btn" id="saveMapBtn">Save Map</button>
+        </div>
+        <div class="foot" id="saveMapStatus" style="margin-top: 12px;">No map saved yet.</div>
       </div>
 
       <div class="card">
@@ -829,6 +1652,28 @@ class WebBridgeNode(Node):
     const cvTargetOffsetValue = document.getElementById('cvTargetOffsetValue');
     const cvTargetPointValue = document.getElementById('cvTargetPointValue');
     const cvFrameValue = document.getElementById('cvFrameValue');
+    const modeCurrentValue = document.getElementById('modeCurrentValue');
+    const modeRequestedValue = document.getElementById('modeRequestedValue');
+    const modePhaseValue = document.getElementById('modePhaseValue');
+    const modeSummaryValue = document.getElementById('modeSummaryValue');
+    const modeErrorValue = document.getElementById('modeErrorValue');
+    const modeButtons = [
+      document.getElementById('modeSlamBtn'),
+      document.getElementById('modeMotionBtn'),
+      document.getElementById('modeNaviBtn'),
+      document.getElementById('modeReadyBtn')
+    ];
+    const forwardBtn = document.getElementById('forwardBtn');
+    const reverseBtn = document.getElementById('reverseBtn');
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const driveState = {
+      throttleSign: 0,
+      steerSign: 0,
+      timer: null,
+      sending: false
+    };
 
     cvFeedLink.href = `http://${window.location.hostname}:5051/video_feed`;
 
@@ -867,18 +1712,103 @@ class WebBridgeNode(Node):
       return response.json();
     }
 
-    async function sendMotion(linearSign, angularSign, source = 'web_bridge_ui') {
-      const linear = linearSign * Number(linearScale.value);
-      const angular = angularSign * Number(angularScale.value);
+    async function selectMode(mode) {
+      const response = await postJson('/api/mode/select', { mode });
+      if (!response.ok) {
+        throw new Error(response.error || 'mode switch failed');
+      }
+      return response;
+    }
+
+    async function sendMotionRaw(linear, angular, source = 'web_bridge_ui') {
       await postJson('/api/motion', {
         source,
         linear,
         angular,
         priority: 1,
         mode: 'manual',
-        timeout_ms: 500,
+        timeout_ms: 400,
         frame_id: 'base_link'
       });
+    }
+
+    function currentDriveVector() {
+      return {
+        linear: driveState.throttleSign * Number(linearScale.value),
+        angular: driveState.steerSign * Number(angularScale.value)
+      };
+    }
+
+    async function pushDriveCommand(source = 'web_drive_hold') {
+      if (driveState.sending) return;
+      driveState.sending = true;
+      try {
+        const vector = currentDriveVector();
+        if (driveState.throttleSign === 0 && driveState.steerSign === 0) {
+          await sendStop();
+        } else {
+          await sendMotionRaw(vector.linear, vector.angular, source);
+        }
+      } finally {
+        driveState.sending = false;
+      }
+    }
+
+    function startDriveLoop(source = 'web_drive_hold') {
+      if (driveState.timer !== null) return;
+      driveState.timer = setInterval(() => {
+        pushDriveCommand(source).catch(() => {});
+      }, 150);
+    }
+
+    function stopDriveLoop() {
+      if (driveState.timer !== null) {
+        clearInterval(driveState.timer);
+        driveState.timer = null;
+      }
+    }
+
+    async function applyDriveState(source = 'web_drive_hold') {
+      if (driveState.throttleSign === 0 && driveState.steerSign === 0) {
+        stopDriveLoop();
+        await sendStop();
+        return;
+      }
+      await pushDriveCommand(source);
+      startDriveLoop(source);
+    }
+
+    async function latchThrottle(throttleSign) {
+      driveState.throttleSign = throttleSign;
+      driveState.steerSign = 0;
+      await applyDriveState('web_drive_latch');
+    }
+
+    async function clearDriveState() {
+      driveState.throttleSign = 0;
+      driveState.steerSign = 0;
+      await applyDriveState('web_drive_stop');
+    }
+
+    function setSteerHold(button, steerSign) {
+      let active = false;
+      const engage = async (event) => {
+        event.preventDefault();
+        active = true;
+        driveState.steerSign = steerSign;
+        await applyDriveState('web_drive_steer');
+      };
+      const release = async (event) => {
+        if (event) event.preventDefault();
+        if (!active) return;
+        active = false;
+        driveState.steerSign = 0;
+        await applyDriveState('web_drive_resume');
+      };
+      button.addEventListener('pointerdown', engage);
+      button.addEventListener('pointerup', release);
+      button.addEventListener('pointercancel', release);
+      button.addEventListener('pointerleave', release);
     }
 
     async function sendStop() {
@@ -1040,13 +1970,15 @@ class WebBridgeNode(Node):
       }
     }
 
-    document.querySelectorAll('button[data-linear]').forEach(button => {
-      button.addEventListener('click', async () => {
-        await sendMotion(Number(button.dataset.linear), Number(button.dataset.angular));
-      });
+    forwardBtn.addEventListener('click', async () => {
+      await latchThrottle(1);
     });
-
-    document.getElementById('stopBtn').addEventListener('click', sendStop);
+    reverseBtn.addEventListener('click', async () => {
+      await latchThrottle(-1);
+    });
+    setSteerHold(leftBtn, 1);
+    setSteerHold(rightBtn, -1);
+    stopBtn.addEventListener('click', clearDriveState);
     document.getElementById('sendGimbalBtn').addEventListener('click', () => sendGimbal());
     document.getElementById('centerGimbalBtn').addEventListener('click', async () => {
       panTarget.value = '0';
@@ -1158,19 +2090,65 @@ class WebBridgeNode(Node):
     document.getElementById('stopAudioBtn').addEventListener('click', async () => {
       await postJson('/api/audio/stop', {});
     });
+    document.getElementById('saveMapBtn').addEventListener('click', async () => {
+      const saveStatus = document.getElementById('saveMapStatus');
+      saveStatus.textContent = 'Saving map...';
+      try {
+        const result = await postJson('/api/slam/save_map', {});
+        saveStatus.textContent = result.ok
+          ? `Saved: ${result.yaml_path}`
+          : `Save failed: ${result.message}`;
+      } catch (error) {
+        saveStatus.textContent = 'Save failed: request error';
+      }
+    });
+    document.getElementById('modeSlamBtn').addEventListener('click', async () => {
+      await selectMode('slam');
+      await refreshState();
+    });
+    document.getElementById('modeMotionBtn').addEventListener('click', async () => {
+      await selectMode('motion');
+      await refreshState();
+    });
+    document.getElementById('modeNaviBtn').addEventListener('click', async () => {
+      await selectMode('navi');
+      await refreshState();
+    });
+    document.getElementById('modeReadyBtn').addEventListener('click', async () => {
+      await selectMode('idle');
+      await refreshState();
+    });
 
     document.addEventListener('keydown', async (event) => {
       if (event.repeat) return;
-      if (event.code === 'KeyW') await sendMotion(1, 0, 'keyboard');
-      if (event.code === 'KeyS') await sendMotion(-1, 0, 'keyboard');
-      if (event.code === 'KeyA') await sendMotion(0, 1, 'keyboard');
-      if (event.code === 'KeyD') await sendMotion(0, -1, 'keyboard');
-      if (event.code === 'Space') await sendStop();
+      if (event.code === 'KeyW') await latchThrottle(1);
+      if (event.code === 'KeyS') await latchThrottle(-1);
+      if (event.code === 'KeyA') {
+        driveState.steerSign = 1;
+        await applyDriveState('keyboard');
+      }
+      if (event.code === 'KeyD') {
+        driveState.steerSign = -1;
+        await applyDriveState('keyboard');
+      }
+      if (event.code === 'Space') await clearDriveState();
+    });
+
+    document.addEventListener('keyup', async (event) => {
+      if (event.code === 'KeyA' && driveState.steerSign === 1) {
+        driveState.steerSign = 0;
+        await applyDriveState('keyboard');
+      }
+      if (event.code === 'KeyD' && driveState.steerSign === -1) {
+        driveState.steerSign = 0;
+        await applyDriveState('keyboard');
+      }
     });
 
     async function refreshState() {
       try {
         const state = await fetch('/state').then(r => r.json());
+        const mode = state.mode || {};
         document.getElementById('batteryValue').textContent = state.battery_voltage.toFixed(2) + ' V';
         document.getElementById('motionValue').textContent = state.motion_state;
         document.getElementById('panValue').textContent = state.gimbal_pan.toFixed(1);
@@ -1182,9 +2160,34 @@ class WebBridgeNode(Node):
         baseLightTargetOut.textContent = String(state.base_light_pwm);
         headLightTargetOut.textContent = String(state.head_light_pwm);
         document.getElementById('faultValue').textContent = state.fault_flags.length ? state.fault_flags.join(', ') : 'none';
-        healthBadge.textContent = state.raw_available ? 'Bridge Online' : 'Waiting Feedback';
+        modeCurrentValue.textContent = mode.current_mode || 'idle';
+        modeRequestedValue.textContent = mode.requested_mode || 'idle';
+        modePhaseValue.textContent = mode.phase || '--';
+        modeSummaryValue.textContent = mode.summary || 'Ready';
+        modeErrorValue.textContent = mode.last_error || 'No mode errors.';
+        modeButtons.forEach(button => {
+          button.disabled = Boolean(mode.busy);
+        });
+        if ((mode.current_mode || 'idle') === 'slam') {
+          healthBadge.textContent = mode.summary || state.health_summary || (state.slam_ready ? 'SLAM OK' : 'Health Pending');
+        } else {
+          healthBadge.textContent = mode.summary || 'Bridge Ready';
+        }
+        const saveMapStatus = document.getElementById('saveMapStatus');
+        if (state.map_save) {
+          if (state.map_save.status === 'saved') {
+            saveMapStatus.textContent = `Saved: ${state.map_save.yaml_path}`;
+          } else if (state.map_save.status === 'running') {
+            saveMapStatus.textContent = state.map_save.message || 'Saving map...';
+          } else {
+            saveMapStatus.textContent = state.map_save.message || 'No map saved yet.';
+          }
+        }
       } catch (error) {
         healthBadge.textContent = 'Bridge Offline';
+        modeButtons.forEach(button => {
+          button.disabled = true;
+        });
       }
     }
 
@@ -1250,6 +2253,223 @@ class WebBridgeNode(Node):
       }
     }
     loadPhotos();
+  </script>
+</body>
+</html>
+"""
+
+    def render_maps_page(self):
+        return """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rasprover Maps</title>
+  <style>
+    :root {
+      --bg: #f4efe7;
+      --panel: #fffdf8;
+      --ink: #16241b;
+      --accent: #315a46;
+      --line: rgba(22,36,27,0.12);
+    }
+    body { margin: 0; font-family: "Trebuchet MS", sans-serif; background: linear-gradient(135deg, #efe7d7, #f8f5ee 60%, #e5efe8); color: var(--ink); }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    .top { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+    .btn { display: inline-block; padding: 10px 14px; border-radius: 14px; background: var(--accent); color: #fff; text-decoration: none; border: 0; cursor: pointer; font-weight: 700; }
+    .layout { display: grid; grid-template-columns: 320px 1fr; gap: 18px; margin-top: 18px; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 18px; box-shadow: 0 14px 34px rgba(0,0,0,0.08); }
+    .list { display: grid; gap: 10px; max-height: 70vh; overflow: auto; }
+    .item { border: 1px solid var(--line); border-radius: 16px; padding: 12px; cursor: pointer; background: white; }
+    .item.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+    .name { font-weight: 800; word-break: break-all; }
+    .meta { opacity: 0.7; font-size: 0.92rem; margin-top: 6px; word-break: break-all; }
+    .item-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .mini-btn { display: inline-block; padding: 8px 10px; border-radius: 12px; background: #456957; color: #fff; text-decoration: none; border: 0; cursor: pointer; font-weight: 700; }
+    .viewer { display: grid; gap: 12px; }
+    .viewer-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .canvas-wrap { background: #d9ddd7; border-radius: 18px; padding: 12px; overflow: auto; min-height: 420px; display: flex; align-items: center; justify-content: center; }
+    canvas, img { max-width: 100%; height: auto; image-rendering: pixelated; background: #fff; border-radius: 10px; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #faf7f0; padding: 12px; border-radius: 14px; border: 1px solid var(--line); }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Saved Maps</h1>
+      <div>
+        <a class="btn" href="/">Home</a>
+      </div>
+    </div>
+    <div class="layout">
+      <div class="panel">
+        <div id="count">Loading maps...</div>
+        <div class="list" id="mapList"></div>
+      </div>
+      <div class="panel viewer" id="viewerPanel">
+        <div>
+          <h2 id="viewerTitle" style="margin: 0 0 8px;">Select a map</h2>
+          <div id="viewerMeta" class="meta">Choose a saved map from the list.</div>
+        </div>
+        <div class="viewer-actions" id="viewerActions" style="display:none;">
+          <a class="btn" id="openImageBtn" target="_blank">Open Image</a>
+          <a class="btn" id="openYamlBtn" target="_blank">Open YAML</a>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <div id="emptyState">No map selected.</div>
+          <canvas id="mapCanvas" hidden></canvas>
+          <img id="mapImage" hidden alt="Map preview">
+        </div>
+        <pre id="yamlPreview">YAML preview will appear here.</pre>
+      </div>
+    </div>
+  </div>
+  <script>
+    const mapList = document.getElementById('mapList');
+    const viewerTitle = document.getElementById('viewerTitle');
+    const viewerMeta = document.getElementById('viewerMeta');
+    const count = document.getElementById('count');
+    const yamlPreview = document.getElementById('yamlPreview');
+    const openImageBtn = document.getElementById('openImageBtn');
+    const openYamlBtn = document.getElementById('openYamlBtn');
+    const viewerActions = document.getElementById('viewerActions');
+    const emptyState = document.getElementById('emptyState');
+    const viewerPanel = document.getElementById('viewerPanel');
+    const mapCanvas = document.getElementById('mapCanvas');
+    const mapImage = document.getElementById('mapImage');
+
+    function showEmpty(message) {
+      emptyState.hidden = false;
+      emptyState.textContent = message;
+      mapCanvas.hidden = true;
+      mapImage.hidden = true;
+      viewerActions.style.display = 'none';
+    }
+
+    function renderPgm(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let idx = 0;
+      const tokens = [];
+      while (tokens.length < 4 && idx < bytes.length) {
+        while (idx < bytes.length && /\s/.test(String.fromCharCode(bytes[idx]))) idx++;
+        if (bytes[idx] === 35) {
+          while (idx < bytes.length && bytes[idx] !== 10) idx++;
+          continue;
+        }
+        let token = '';
+        while (idx < bytes.length && !/\s/.test(String.fromCharCode(bytes[idx]))) {
+          token += String.fromCharCode(bytes[idx]);
+          idx++;
+        }
+        if (token) tokens.push(token);
+      }
+      const [magic, widthStr, heightStr, maxValStr] = tokens;
+      if (magic !== 'P5' && magic !== 'P2') throw new Error('Unsupported PGM format');
+      const width = Number(widthStr);
+      const height = Number(heightStr);
+      const maxVal = Number(maxValStr) || 255;
+      while (idx < bytes.length && /\s/.test(String.fromCharCode(bytes[idx]))) idx++;
+      const imageData = new ImageData(width, height);
+      if (magic === 'P5') {
+        for (let i = 0; i < width * height; i++) {
+          const raw = bytes[idx + i];
+          const value = Math.round((raw / maxVal) * 255);
+          imageData.data[i * 4 + 0] = value;
+          imageData.data[i * 4 + 1] = value;
+          imageData.data[i * 4 + 2] = value;
+          imageData.data[i * 4 + 3] = 255;
+        }
+      } else {
+        const decoder = new TextDecoder('ascii');
+        const text = decoder.decode(bytes.slice(idx)).trim();
+        const values = text.split(/\s+/).map(Number);
+        for (let i = 0; i < width * height; i++) {
+          const value = Math.round(((values[i] || 0) / maxVal) * 255);
+          imageData.data[i * 4 + 0] = value;
+          imageData.data[i * 4 + 1] = value;
+          imageData.data[i * 4 + 2] = value;
+          imageData.data[i * 4 + 3] = 255;
+        }
+      }
+      mapCanvas.width = width;
+      mapCanvas.height = height;
+      mapCanvas.getContext('2d').putImageData(imageData, 0, 0);
+      mapCanvas.hidden = false;
+      mapImage.hidden = true;
+      emptyState.hidden = true;
+    }
+
+    async function showMap(entry, element) {
+      document.querySelectorAll('.item').forEach(node => node.classList.remove('active'));
+      if (element) element.classList.add('active');
+      viewerTitle.textContent = entry.name;
+      viewerMeta.textContent = `Image: ${entry.image} | YAML: ${entry.yaml}`;
+      openImageBtn.href = `/maps/${encodeURIComponent(entry.image)}`;
+      openYamlBtn.href = `/maps/${encodeURIComponent(entry.yaml)}`;
+      viewerActions.style.display = 'flex';
+      if (window.innerWidth < 860) {
+        viewerPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      const yamlText = await fetch(`/maps/${encodeURIComponent(entry.yaml)}`).then(r => r.text());
+      yamlPreview.textContent = yamlText;
+
+      if (entry.image_format === 'pgm') {
+        const buffer = await fetch(`/maps/${encodeURIComponent(entry.image)}`).then(r => r.arrayBuffer());
+        renderPgm(buffer);
+      } else {
+        mapImage.src = `/maps/${encodeURIComponent(entry.image)}`;
+        mapImage.hidden = false;
+        mapCanvas.hidden = true;
+        emptyState.hidden = true;
+      }
+    }
+
+    async function loadMaps() {
+      const maps = await fetch('/api/maps').then(r => r.json());
+      count.textContent = `Total maps: ${maps.length}`;
+      mapList.innerHTML = '';
+      if (!maps.length) {
+        showEmpty('No saved maps found.');
+        yamlPreview.textContent = 'Save a map from the main UI first.';
+        return;
+      }
+      maps.forEach((entry, index) => {
+        const item = document.createElement('div');
+        item.className = 'item';
+        item.innerHTML = `
+          <div class="name">${entry.name}</div>
+          <div class="meta">${entry.image}</div>
+          <div class="meta">${entry.yaml}</div>
+          <div class="item-actions">
+            <button class="mini-btn" data-role="preview">Preview</button>
+            <a class="mini-btn" data-role="image" href="/maps/${encodeURIComponent(entry.image)}" target="_blank">Image</a>
+            <a class="mini-btn" data-role="yaml" href="/maps/${encodeURIComponent(entry.yaml)}" target="_blank">YAML</a>
+          </div>
+        `;
+        item.addEventListener('click', (event) => {
+          const role = event.target.dataset.role || '';
+          if (role === 'image' || role === 'yaml') {
+            return;
+          }
+          showMap(entry, item);
+        });
+        item.querySelector('[data-role="preview"]').addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          showMap(entry, item);
+        });
+        mapList.appendChild(item);
+        if (index === 0) showMap(entry, item);
+      });
+    }
+
+    loadMaps().catch((error) => {
+      count.textContent = 'Failed to load maps';
+      showEmpty('Failed to load maps.');
+      yamlPreview.textContent = String(error);
+    });
   </script>
 </body>
 </html>

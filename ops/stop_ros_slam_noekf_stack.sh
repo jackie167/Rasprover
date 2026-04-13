@@ -22,7 +22,9 @@ pkill -f "launch rasprover_bringup slam_noekf.launch.py" || true
 pkill -f "/slam_toolbox/lib/slam_toolbox/async_slam_toolbox_node" || true
 pkill -f "/tf2_ros/static_transform_publisher.*base_link" || true
 pkill -f "/rplidar_ros/lib/rplidar_ros/rplidar_node" || true
-pkill -f "/rasprover_ui/lib/rasprover_ui/web_bridge_node" || true
+if [ "${KEEP_WEB_BRIDGE:-false}" != "true" ]; then
+  pkill -f "/rasprover_ui/lib/rasprover_ui/web_bridge_node" || true
+fi
 pkill -f "/rasprover_control/lib/rasprover_control/local_joy_node" || true
 pkill -f "/rasprover_control/lib/rasprover_control/joystick_bridge_node" || true
 pkill -f "/rasprover_control/lib/rasprover_control/command_mux_node" || true

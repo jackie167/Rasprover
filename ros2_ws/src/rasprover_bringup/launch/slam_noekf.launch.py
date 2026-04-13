@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -19,6 +20,7 @@ def generate_launch_description():
     serial_port = LaunchConfiguration('serial_port')
     joy_topic = LaunchConfiguration('joy_topic')
     web_port = LaunchConfiguration('web_port')
+    start_web = LaunchConfiguration('start_web')
     lidar_port = LaunchConfiguration('lidar_port')
     angle_compensate = LaunchConfiguration('angle_compensate')
     scan_mode = LaunchConfiguration('scan_mode')
@@ -37,6 +39,7 @@ def generate_launch_description():
         DeclareLaunchArgument('serial_port', default_value=default_serial_port()),
         DeclareLaunchArgument('joy_topic', default_value='/joy'),
         DeclareLaunchArgument('web_port', default_value='5050'),
+        DeclareLaunchArgument('start_web', default_value='true'),
         DeclareLaunchArgument('lidar_port', default_value=default_lidar_port()),
         DeclareLaunchArgument('angle_compensate', default_value='true'),
         DeclareLaunchArgument('scan_mode', default_value=''),
@@ -62,7 +65,7 @@ def generate_launch_description():
         command_mux_node(),
         local_joy_node(),
         joystick_bridge_node(joy_topic),
-        web_bridge_node(web_port),
+        web_bridge_node(web_port, condition=IfCondition(start_web)),
         Node(
             package='rplidar_ros',
             executable='rplidar_node',

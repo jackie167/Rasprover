@@ -1,3 +1,4 @@
+import json
 import math
 
 import rclpy
@@ -9,6 +10,7 @@ from rasprover_msgs.msg import MotionCommand
 from rasprover_msgs.msg import RawRobotFeedback
 from rasprover_msgs.msg import RobotFeedback
 from rasprover_msgs.msg import ServoSetupCommand
+from std_msgs.msg import String
 
 from .adapters import RobotFeedbackAdapter
 from .adapters import RobotHardwareAdapter
@@ -154,6 +156,12 @@ class RobotBaseNode(Node):
             ServoSetupCommand,
             '/robot/cmd/servo_setup',
             self.handle_servo_setup_command,
+            10,
+        )
+        self.oled_sub = self.create_subscription(
+            String,
+            '/robot/cmd/oled',
+            self.handle_oled_command,
             10,
         )
         self.feedback_pub = self.create_publisher(RobotFeedback, '/robot/state/feedback', 10)
@@ -305,6 +313,26 @@ class RobotBaseNode(Node):
         self.get_logger().info(
             f'servo_setup source={msg.source} action={action} old_id={msg.old_id} new_id={msg.new_id} servo_id={msg.servo_id} status={msg.status}'
         )
+
+    def handle_oled_command(self, msg):
+        try:
+            payload = json.loads(msg.data or '{}')
+        except json.JSONDecodeError:
+            self.get_logger().warning(f'invalid oled payload: {msg.data!r}')
+            return
+
+        action = str(payload.get('action', 'set_line'))
+        if action == 'set_line':
+            line, text = self.hardware.send_oled_line(payload.get('line', 0), payload.get('text', ''))
+            self.get_logger().info(f'oled line={line} text={text}')
+            return
+
+        if action == 'default':
+            self.hardware.base_driver.base.base_default_oled()
+            self.get_logger().info('oled default display restored')
+            return
+
+        self.get_logger().warning(f'unsupported oled action: {action}')
 
     def update_feedback_control_state(self, feedback):
         if not isinstance(feedback, dict) or feedback.get('T') != 1001:

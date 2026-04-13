@@ -10,7 +10,7 @@ if [ -n "$SUDO_USER" ] || [ -n "$SUDO_UID" ]; then
 fi
 
 # Define the primary ROS runtime cron job
-cron_job1="@reboot WITH_CV=true /bin/bash ~/ugv_rpi/ops/start_ros_motion_stack.sh >> ~/ros_motion_autorun.log 2>&1"
+cron_job1="@reboot /bin/bash ~/ugv_rpi/ops/start_ros_mode_selector.sh >> ~/ros_selector_autorun.log 2>&1"
 
 # Historical legacy runtime cron jobs kept here only so we can remove them if present
 legacy_cron_job_old="@reboot XDG_RUNTIME_DIR=/run/user/$(id -u) ~/ugv_rpi/ugv-env/bin/python ~/ugv_rpi/app.py >> ~/ugv.log 2>&1"
@@ -19,7 +19,7 @@ legacy_cron_job_new="@reboot XDG_RUNTIME_DIR=/run/user/$(id -u) PROJECT_DIR=~/ug
 # Define the second cron job for starting Jupyter
 cron_job2="@reboot /bin/bash ~/ugv_rpi/ops/start_jupyter.sh >> ~/jupyter_log.log 2>&1"
 
-echo "Configuring autorun for the ROS motion runtime with optional CV."
+echo "Configuring autorun for the ROS mode selector runtime."
 
 # Remove any old legacy app autorun if it is still present
 if crontab -l 2>/dev/null | grep -Fq "$legacy_cron_job_old"; then

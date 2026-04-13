@@ -12,6 +12,7 @@ WITH_CV="${WITH_CV:-false}"
 mkdir -p "$LOG_DIR" "$PID_DIR" "$RUNTIME_LOG_DIR"
 
 "$SCRIPT_DIR/stop_ros_motion_stack.sh" >/dev/null 2>&1 || true
+"$SCRIPT_DIR/stop_ros_mode_selector.sh" >/dev/null 2>&1 || true
 sleep 1
 
 start_node() {
@@ -56,11 +57,13 @@ start_node \
   "$ROS_WS/install/rasprover_control/lib/rasprover_control/joystick_bridge_node" \
   "--ros-args --log-level info"
 sleep 1
-start_node \
-  "web" \
-  "$ROS_WS/install/rasprover_ui/lib/rasprover_ui/web_bridge_node" \
-  "--ros-args -p port:=5050 --log-level info"
-sleep 2
+if [ "${KEEP_WEB_BRIDGE:-false}" != "true" ]; then
+  start_node \
+    "web" \
+    "$ROS_WS/install/rasprover_ui/lib/rasprover_ui/web_bridge_node" \
+    "--ros-args -p port:=5050 --log-level info"
+  sleep 2
+fi
 
 if [ "$WITH_CV" = "true" ]; then
   pkill -f "/rasprover_cv/lib/rasprover_cv/cv_node" || true
